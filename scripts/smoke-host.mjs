@@ -295,6 +295,33 @@ assert(requests.findLast((item) => item.provider === 'grok').body.prompt === 'a 
 assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2K', '/image parses --size')
 assert(requests.findLast((item) => item.provider === 'grok').body.aspect_ratio === '1:1', '/image parses --ratio')
 
+// Same-conversation /image: first is text-to-image, next auto-edits, --new resets.
+const commandSession = { agent: { session: { id: 'smoke-command-session' } } }
+const firstConversation = await command.handler({
+  rawInput: 'agnes 1k 1:1 a cat',
+  signal: new AbortController().signal,
+  ...commandSession,
+})
+assert(firstConversation.kind === 'success', 'conversation first /image succeeds')
+const secondConversation = await command.handler({
+  rawInput: 'make it blue',
+  signal: new AbortController().signal,
+  ...commandSession,
+})
+assert(secondConversation.kind === 'success', 'conversation follow-up /image succeeds')
+assert(secondConversation.text.includes('基于参考图'), 'follow-up reports the previous image reference')
+const secondConversationRequest = requests.findLast((item) => item.provider === 'agnes')
+assert(secondConversationRequest.body.extra_body && secondConversationRequest.body.extra_body.image.length === 1, 'follow-up sends the previous image as reference')
+const freshConversation = await command.handler({
+  rawInput: '--new agnes 1k 1:1 a dog',
+  signal: new AbortController().signal,
+  ...commandSession,
+})
+assert(freshConversation.kind === 'success', 'conversation --new /image succeeds')
+const freshConversationRequest = requests.findLast((item) => item.provider === 'agnes')
+assert(!freshConversationRequest.body.extra_body, '--new resets to text-to-image')
+
+
 // Image-to-image: Agnes JSON extra_body / OpenAI multipart / Grok JSON edits.
 result = await call('/image-studio/setup', {
   method: 'POST',

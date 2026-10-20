@@ -184,13 +184,13 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.2.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.3.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（添加/更换/移除，PNG/JPEG/WebP，可拖入，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
-- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止）。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。静止/出图状态显示静态矩阵点，生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止），不再使用棋盘格。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
+- 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；Agnes 附带「获取 Agnes Key」直达 `https://platform.agnes-ai.cn/`（另附国际站），清除 Key 只清当前服务商。
 - 底部：无独立区块，历史在右卡底部。
-- 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；清除 Key 只清当前服务商。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
 
 ## 5. `/image` 命令
@@ -218,7 +218,7 @@ ctx.inject(['commands'], (commandsCtx) => {
 /image 2k 16:9 默认服务商
 
 # 显式参数（兼容老写法）
-/image [--provider agnes|openai|grok|openai-compatible]
+/image [--new] [--provider agnes|openai|grok|openai-compatible]
        [--size 1K|2K|3K|4K|1024x1024|…]
        [--ratio 1:1|…|21:9]
        [--quality auto|low|medium|high|standard|hd]
@@ -235,14 +235,17 @@ ctx.inject(['commands'], (commandsCtx) => {
 - 质量仍用 `--quality`（避免把提示词里的 “high quality” 误吞）。
 - GPT Image 没有 2K/4K 档：`gpt 2k 16:9` 会映射为 `1536x1024`，`gpt 2k 9:16` → `1024x1536`，方形 → `1024x1024`；其他 OpenAI 尺寸仍可直接写像素。
 - 未写 `--provider` 时用 `config.json` 的 `defaultProvider`；点击面板页签会更新它。
-- 命令是文生图，暂不接受参考图；图生图请用面板的「添加参考图」。
+- **同一对话的上下文**：第一次 `/image` 是文生图；之后同一 session 再发 `/image`，会自动把上一张图读成 data URL 作为参考图（图生图）。`--new` 强制重新文生图。
+- 会话上下文只存在 Host 内存（按 session id，最多 200 个会话），不写盘；DSH 重启后第一条会重新文生图。
+- 图片被删除或超过 12MB 时，后续修改会明确报错，提示用 `--new` 重新生成。
 - 结果：
   ```text
   已生成图片 · Grok Image · grok-imagine-image-2.0 · 2K · 16:9 · medium · 3.2s
-  ![生图结果](/image-studio/files/img-….png)
+  图片地址：/image-studio/files/img-….png
   本地文件：C:\…\.dsh\image-studio\outputs\img-….png
   ```
-- 客户端注册 `conversation.chat.commandview` key=`image`，在有会话的 chat 里渲染图片卡片；命令文本仍保留 URL 和本地路径。
+- 客户端注册 `conversation.chat.commandview` key=`image`，解析纯图片地址并**内联渲染**图片卡片；不再输出 Markdown 图片链接，避免误跳工作台。
+- 命令卡片底部提示「继续 /image 修改上一张；/image --new 重新生成」。
 - 命令名冲突时捕获并警告，面板不受影响。
 
 ## 6. Key 与配置存储
@@ -341,6 +344,7 @@ Profile（安装自动产生）：
   - 清除 OpenAI Key 不影响 Agnes/Grok；缺 Key 返回 409 且 `error.provider` 正确；
   - `/image --provider grok …` 走 Grok Key 和参数；
   - 简写 `/image gpt 2k 16:9 …` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 简写均通过；
+  - 同一 session：第一条 `/image` 文生图；第二条自动带上一张 `extra_body.image`，文案显示「基于参考图」；`--new` 后不再带参考图；
   - 图生图：Agnes `extra_body.image`、OpenAI/兼容 `multipart /v1/images/edits`、Grok JSON `/v1/images/edits` `images[]` 均通过；DALL·E 3 参考图 422；非法参考图 422；history `referenceCount` 正确；
   - 历史 8+ 条、文件路由、参数传递、路径穿越 404、未知 provider 422。
 - **隔离 profile + headless 浏览器**：
@@ -348,12 +352,13 @@ Profile（安装自动产生）：
   - 默认 provider 正确选中；
   - 切换到 GPT Image 后模型/尺寸/质量选项正确，Key chip 显示掩码；
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
-  - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；
+  - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；Agnes 页有「获取 Agnes Key」；
   - mock 请求体确认为标准 OpenAI Images body；
   - 参考图上传：文件选择/拖入后出现缩略图与尺寸，Agnes 请求 `extra_body.image` 长度为 1，结果 meta 出现「参考图 1」；
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
+  - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、参考图区域、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.3.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
