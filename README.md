@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 斜杠命令，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.4.0** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.4.1** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -52,7 +52,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 ## 更新
 
-当前版本 `v0.4.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.4.0`，可以用它确认是否生效。
+当前版本 `v0.4.1`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.4.1`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -62,7 +62,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.4.0
+git checkout v0.4.1
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -112,7 +112,7 @@ $DSH_HOME/image-studio/
 /image --provider openai --size 1024x1024 --quality high 一只戴宇航头盔的橘猫
 ```
 
-命令结果会作为图片卡片留在当前对话里，不会跳到工作台；需要下载原图、看历史或换更多参数时再点侧边栏「生图工作台」。
+命令结果会作为图片卡片留在当前对话里，不会跳到工作台；需要下载原图、看历史或换更多参数时再点侧边栏「生图工作台」。新对话首条 `/image` 也可以直接用：命令会先补一条用户消息，避免会话停在空白首屏。
 
 提示：GPT Image 没有 2K/4K 档，`gpt 2k 16:9` 会映射为 `1536x1024`（竖图为 `1024x1536`，方形为 `1024x1024`）；Grok/Agnes 保留原生 2K 档。
 

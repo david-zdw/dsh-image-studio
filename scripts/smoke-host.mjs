@@ -321,6 +321,35 @@ assert(freshConversation.kind === 'success', 'conversation --new /image succeeds
 const freshConversationRequest = requests.findLast((item) => item.provider === 'agnes')
 assert(!freshConversationRequest.body.extra_body, '--new resets to text-to-image')
 
+// New-conversation command: a user message is seeded once so the chat surface is not empty.
+const seededSession = {
+  id: 'smoke-seeded-session',
+  seq: 1,
+  events: [],
+  messages: [],
+  append(type, data) {
+    this.events.push({ type, data })
+    this.seq += 1
+    if (type === 'user/message') this.messages.push(data)
+  },
+  deriveMessages() { return this.messages },
+}
+const seededResult = await command.handler({
+  rawInput: 'agnes 1k 1:1 a seeded cat',
+  signal: new AbortController().signal,
+  agent: { session: seededSession },
+})
+assert(seededResult.kind === 'success', 'new-conversation /image succeeds')
+const seededMessages = seededSession.events.filter((event) => event.type === 'user/message')
+assert(seededMessages.length === 1 && seededMessages[0].data.content[0].text.includes('/image agnes 1k 1:1'), 'new-conversation /image seeds the user message')
+await command.handler({
+  rawInput: 'make it warm',
+  signal: new AbortController().signal,
+  agent: { session: seededSession },
+})
+assert(seededSession.events.filter((event) => event.type === 'user/message').length === 1, 'existing conversation does not seed another user message')
+
+
 
 // Image-to-image: Agnes JSON extra_body / OpenAI multipart / Grok JSON edits.
 result = await call('/image-studio/setup', {

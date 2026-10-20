@@ -184,7 +184,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.4.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.4.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -236,6 +236,7 @@ ctx.inject(['commands'], (commandsCtx) => {
 - GPT Image 没有 2K/4K 档：`gpt 2k 16:9` 会映射为 `1536x1024`，`gpt 2k 9:16` → `1024x1536`，方形 → `1024x1024`；其他 OpenAI 尺寸仍可直接写像素。
 - 未写 `--provider` 时用 `config.json` 的 `defaultProvider`；点击面板页签会更新它。
 - **同一对话的上下文**：第一次 `/image` 是文生图；之后同一 session 再发 `/image`，会自动把上一张图读成 data URL 作为参考图（图生图）。`--new` 强制重新文生图。
+- **新对话首条 `/image`**：命令服务在真正的用户消息提交前执行，容易停留在空白首屏；handler 在没有 user/assistant 消息且 `session.seq <= 20` 时补一条 `user/message`（内容为 `/image …`），让会话立即有用户气泡，后续命令结果卡片才有宿主。已有对话不重复补。
 - 会话上下文只存在 Host 内存（按 session id，最多 200 个会话），不写盘；DSH 重启后第一条会重新文生图。
 - 图片被删除或超过 12MB 时，后续修改会明确报错，提示用 `--new` 重新生成。
 - 结果：
@@ -345,6 +346,7 @@ Profile（安装自动产生）：
   - `/image --provider grok …` 走 Grok Key 和参数；
   - 简写 `/image gpt 2k 16:9 …` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 简写均通过；
   - 同一 session：第一条 `/image` 文生图；第二条自动带上一张 `extra_body.image`，文案显示「基于参考图」；`--new` 后不再带参考图；
+  - 新会话首条 `/image`：补一条 `user/message`；同一会话第二条不再补（fake session 单测通过）；
   - 图生图：Agnes `extra_body.image`、OpenAI/兼容 `multipart /v1/images/edits`、Grok JSON `/v1/images/edits` `images[]` 均通过；DALL·E 3 参考图 422；非法参考图 422；history `referenceCount` 正确；
   - 历史 8+ 条、文件路由、参数传递、路径穿越 404、未知 provider 422。
 - **隔离 profile + headless 浏览器**：
@@ -359,7 +361,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.4.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.4.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
