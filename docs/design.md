@@ -184,7 +184,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.2.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（添加/更换/移除，PNG/JPEG/WebP，可拖入，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -272,7 +272,7 @@ Key 读取优先级（按 provider）：
 
 | Method | Path | 作用 |
 |---|---|---|
-| GET | `/image-studio/status` | `{enabled, defaultProvider, providers[], storageDir}`，每个 provider 含配置/Key 状态/模型/尺寸/比例/质量 |
+| GET | `/image-studio/status` | `{enabled, version, defaultProvider, providers[], storageDir}`，每个 provider 含配置/Key 状态/模型/尺寸/比例/质量 |
 | POST | `/image-studio/setup` | `{providerId?, defaultProvider?, apiKey?, clearKey?, baseUrl?, endpointPath?, model?, size?, ratio?, quality?}` |
 | POST | `/image-studio/generate` | `{provider?, prompt, model?, size?, ratio?, quality?, referenceImages?}` |
 | GET | `/image-studio/history` | 最近 80 条（含 provider） |

@@ -124,6 +124,7 @@ await fs.writeFile(path.join(storage, 'credentials.json'), JSON.stringify({ apiK
 let result = await call('/image-studio/status')
 assert(result.status === 200 && result.json.ok === true, 'status responds')
 assert(result.json.value.providers.length === 4, 'four provider profiles')
+assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(result.json.value.version), 'status reports the package version')
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
 assert(agnes.baseUrl === `http://127.0.0.1:${port}/agnes`, 'legacy Agnes baseUrl migrates')
