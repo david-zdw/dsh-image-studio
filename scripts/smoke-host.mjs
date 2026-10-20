@@ -405,6 +405,37 @@ assert(result.status === 422 && /参考图/.test(result.json.error.message), 'in
 result = await call('/image-studio/history')
 assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
 
+// File route + delete from history/disk.
+const historyItem = result.json.value.items[0]
+const historyFile = await fetch(`${origin}${historyItem.url}`)
+assert(historyFile.status === 200 && historyFile.headers.get('content-type') === 'image/png', 'file route serves PNG')
+const historyDownload = await fetch(`${origin}${historyItem.url}?download=1`)
+assert(historyDownload.status === 200 && /attachment/.test(historyDownload.headers.get('content-disposition') || ''), 'download route sends an attachment')
+result = await call(`/image-studio/history/${encodeURIComponent(historyItem.id)}`, { method: 'DELETE' })
+assert(result.status === 200 && result.json.value.deleted === true, 'delete removes the history item')
+const deletedFile = await fetch(`${origin}${historyItem.url}`)
+assert(deletedFile.status === 404, 'delete removes the image file')
+result = await call('/image-studio/history')
+assert(!result.json.value.items.some((item) => item.id === historyItem.id), 'deleted item is gone from history')
+
+// Selected models persist and drive the panel list; a custom GPT model exposes 4K + ratio.
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: {
+    providerId: 'openai',
+    model: 'gpt-image-2.5-sunburst',
+    models: ['gpt-image-2.5-sunburst', 'gpt-image-1.5'],
+    size: '4096x4096',
+    ratio: '1:1',
+  },
+})
+assert(result.status === 200, 'setup saves selected models')
+const customized = result.json.value.providers.find((item) => item.id === 'openai')
+assert(JSON.stringify(customized.models) === JSON.stringify(['gpt-image-2.5-sunburst', 'gpt-image-1.5']), 'only selected models are exposed')
+assert(customized.size === '4096x4096', 'custom GPT model accepts a 4K size')
+assert(customized.supportsRatio === true, 'custom GPT model supports ratio')
+
+
 // Path traversal refusal.
 result = await call('/image-studio/files/../credentials.json')
 assert(result.status === 404, 'path traversal is refused')
