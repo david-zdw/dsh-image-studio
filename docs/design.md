@@ -1,0 +1,371 @@
+# 生图工作台（dsh-image-studio）设计说明
+
+> 目标：在 DeepSeek Harness 里做一个与「上下文洞察」同级的一级侧边栏生图插件，支持 **Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容** 四个服务商，每个服务商独立 Key；同时提供 `/image` 斜杠命令。Agnes 复用 `open-storyboard-canvas` 既有请求契约，OpenAI/Grok/兼容档使用各自的标准 Images API。
+
+## 1. 方案概述
+
+插件是标准 DSH 双半包：
+
+```text
+┌──────────────────────────── dsh-image-studio ────────────────────────────┐
+│ Host (lib/index.js + lib/providers.js, Node)                             │
+│   config.json / credentials.json（每个 provider 独立 key）                │
+│   POST /image-studio/generate ─► generateImage() ─► requestGeneration()  │
+│   GET  status|history|files                                              │
+│   /image command ─────────────► generateImage()（同一条链路）             │
+└──────────────────────────────────▲───────────────────────────────────────┘
+                                   │ loopback HTTP（Key 不下发浏览器）
+┌──────────────────────────────────┴───────────────────────────────────────┐
+│ Client (lib/client.js, browser)                                           │
+│   sidebar.panellist  「生图工作台」                                          │
+│   main / key=image-studio   面板：服务商页签 + 提示词 + 结果 + 历史         │
+│   conversation.chat.commandview / key=image   /image 结果图                │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+核心原则：
+
+1. **一个生成管线**：面板与 `/image` 都调用 `generateImage()`；只有“参数来源”不同。
+2. **一个 provider 抽象**：`lib/providers.js` 定义四个 preset；`buildRequestBody()` 按 preset 生成 body。
+3. **Key 分槽**：`credentials.json` 的 `keys.<providerId>`，绝不跨服务商回退。
+4. **主题原生**：只用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等 DSH token。
+
+## 2. 四个服务商的请求契约
+
+### 2.1 Agnes（复用 open-storyboard-canvas）
+
+代码库：`open-storyboard-canvas`（本地开发副本；Agnes 改动未提交）。关键路径：
+
+- `src/features/canvas/infrastructure/customProviderGateway.ts:704` `buildAgnesImageRequestBody`
+- `:618` `resolveAgnesImageSizeTier`，`:637` `resolveAgnesImageRatio`
+- `:660` `AGNES_IMAGE_20_SIZE_BY_TIER`
+- `src/stores/customProvidersStore.ts:131` `AGNES_PROVIDER_DEFAULTS`
+- 传输：`src/commands/ai.ts:263` `customHttpRequest` → Tauri `invoke('custom_http_request')`
+
+请求：
+
+```http
+POST https://apihub.agnes-ai.cn/v1/images/generations
+Authorization: Bearer <agnes key>
+Content-Type: application/json
+```
+
+```json
+{"model":"agnes-image-2.5-flash","prompt":"…","size":"2K","ratio":"16:9","return_base64":true}
+```
+
+参考图时改为：
+
+```json
+{"model":"…","prompt":"…","size":"2K","ratio":"16:9",
+ "extra_body":{"image":["data:image/png;base64,…"],"response_format":"b64_json"}}
+```
+
+`agnes-image-2.0-*` 用精确像素、省略 `ratio`。响应取 `data[0].b64_json` 或 `data[0].url`。
+
+### 2.2 OpenAI GPT Image
+
+```http
+POST https://api.openai.com/v1/images/generations
+Authorization: Bearer <openai key>
+```
+
+```json
+{"model":"gpt-image-1.5","prompt":"…","n":1,"size":"1024x1024","quality":"high"}
+```
+
+- 模型：`gpt-image-1.5` / `gpt-image-1` / `gpt-image-1-mini` / `chatgpt-image-latest` / `dall-e-3`。
+- GPT Image 尺寸：`1024x1024`、`1536x1024`、`1024x1536`、`auto`；质量 `auto/low/medium/high`。
+- 命令里的友好档位会映射到像素：`2k`/`4k` + 横图 → `1536x1024`，竖图 → `1024x1536`，方形 → `1024x1024`；也可直接写像素。
+- DALL·E 3 尺寸：`1024x1024`、`1792x1024`、`1024x1792`；质量 `standard/hd`。
+- 面板在切换模型时自动切换尺寸/质量选项；`quality=auto` 时不发送，使用上游默认。
+- 参考图编辑需要 `/v1/images/edits` multipart，当前面板只做纯文本生图。
+
+### 2.3 Grok Image（xAI Imagine）
+
+```http
+POST https://api.x.ai/v1/images/generations
+Authorization: Bearer <xai key>
+```
+
+```json
+{"model":"grok-imagine-image-2.0","prompt":"…","n":1,
+ "aspect_ratio":"16:9","resolution":"1K","quality":"medium","response_format":"url"}
+```
+
+- 模型：`grok-imagine-image-2.0`（默认）/ `grok-imagine-image`。
+- `resolution` 使用 `1K` / `2K`；`aspect_ratio` 支持 `1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9/5:2`。
+- 响应通常为 `data[0].url`，Host 下载后落盘。
+- xAI 的旧 `grok-2-image-1212` 参数不同，未列入默认；如要接旧模型，需要另加 branch 或自建兼容接口。
+
+> 参考：xAI Imagine 文档（`docs.x.ai/developers/model-capabilities/imagine`）与 Grok Imagine Image 2.0 的 `aspect_ratio` / `resolution` / `quality` 说明。若 xAI 调整参数，改 `lib/providers.js` 的 `buildRequestBody` 即可，UI 配置可继续复用。
+
+### 2.4 OpenAI 兼容
+
+标准 OpenAI Images 协议，用户自己填 Base URL、接口路径、模型：
+
+```json
+{"model":"my-image-model","prompt":"…","n":1,"size":"1024x1024"}
+```
+
+- 默认 Base URL `https://api.example.com`，必须由用户改成自己的中转地址。
+- `size=auto` 时**省略 `size` 字段**，尽量兼容不同聚合器。
+- 质量只在不是 `auto` 时发送。
+- 响应仍按 `data[0].b64_json|url`、`images[]`、嵌套 JSON 字符串等深度扫描。
+
+## 3. Provider 抽象与两条调用链路
+
+`lib/providers.js` 导出：
+
+```js
+PROVIDER_ORDER = ['agnes','openai','grok','openai-compatible']
+PROVIDERS[id] = {
+  id, label, shortLabel, kind, baseUrl, endpointPath,
+  models, defaultModel, sizes, defaultSize, sizeByModel,
+  ratios, defaultRatio, supportsRatio,
+  qualities, defaultQuality, qualityByModel, supportsQuality,
+  keyPlaceholder, envKeys, editableEndpoint, sizeMode
+}
+buildRequestBody(preset, config, request) → {body, model, size, ratio, quality}
+buildEndpointUrl(config)
+```
+
+Host：
+
+```js
+async function generateImage(pluginConfig, input) {
+  const providerId = normalizeProviderId(input.provider) ?? configDoc.defaultProvider
+  const preset = getProvider(providerId)
+  const config = resolveProviderConfig(preset, configDoc.providers[providerId])
+  const key = credentialFor(credentialsDoc, preset).key
+  if (!key) throw unconfigured(preset)
+  const built = buildRequestBody(preset, config, input)
+  const {buffer, mime} = await requestGeneration(preset, config, key, built.body)
+  // 落盘 + history + 返回 provider/model/size/ratio/quality/url/filePath
+}
+```
+
+面板：
+
+```text
+POST /image-studio/generate {provider, prompt, model, size, ratio?, quality?}
+  → generateImage(pluginConfig, body)
+```
+
+斜杠：
+
+```text
+/image --provider openai --size 1024x1024 --quality high <prompt>
+  → parseImageCommand(rawInput)
+  → generateImage(pluginConfig, parsed)
+```
+
+两条链路只在参数来源和展示方式不同；请求体、鉴权、超时、错误映射、落盘、历史共用。
+
+## 4. 侧边栏 UI
+
+注册：
+
+```js
+slots.register({ name: 'sidebar.panellist', id: 'image-studio', order: 30,
+                 label: () => '生图工作台' }, StudioIcon)
+slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
+```
+
+页面结构：
+
+- 顶部：图标 + 标题 + 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
+- 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
+- 左列：提示词（4000 字上限）、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径。
+- 底部：最近 80 张历史缩略图。
+- 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；清除 Key 只清当前服务商。
+- 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
+
+## 5. `/image` 命令
+
+Host 注册：
+
+```js
+ctx.inject(['commands'], (commandsCtx) => {
+  commandsCtx.effect(() => commandsCtx.commands.register({
+    name: 'image',
+    description: '用生图工作台生成图片：/image [gpt|grok|agnes] [2k] [16:9] <提示词>',
+    input: { hint: '例如：/image gpt 2k 16:9 一只猫；也支持 --provider / --size / --ratio' },
+    async handler(invocation) { … }
+  }))
+})
+```
+
+语法：
+
+```text
+# 推荐简写：服务商 + 尺寸 + 比例，顺序可换，遇到第一个不认识的词即提示词
+/image gpt 2k 16:9 一只猫
+/image grok 2k 9:16 雨夜霓虹街道
+/image agnes 1k 1:1 电影感棚拍
+/image 2k 16:9 默认服务商
+
+# 显式参数（兼容老写法）
+/image [--provider agnes|openai|grok|openai-compatible]
+       [--size 1K|2K|3K|4K|1024x1024|…]
+       [--ratio 1:1|…|21:9]
+       [--quality auto|low|medium|high|standard|hd]
+       [--model <id>]
+       <提示词>
+```
+
+解析规则：
+
+- 只解析**开头**的 provider/size/ratio；一旦遇到不认识的词，剩余全部作为提示词。
+- 服务商别名：`gpt`→openai、`grok`、`agnes`、`compatible`/`custom`→openai-compatible。
+- 尺寸 token：`1k/2k/3k/4k`、`1024x1024` 等像素、`auto`。
+- 比例 token：`1:1/3:4/4:3/16:9/9:16/2:3/3:2/21:9/5:2`。
+- 质量仍用 `--quality`（避免把提示词里的 “high quality” 误吞）。
+- GPT Image 没有 2K/4K 档：`gpt 2k 16:9` 会映射为 `1536x1024`，`gpt 2k 9:16` → `1024x1536`，方形 → `1024x1024`；其他 OpenAI 尺寸仍可直接写像素。
+- 未写 `--provider` 时用 `config.json` 的 `defaultProvider`；点击面板页签会更新它。
+- 结果：
+  ```text
+  已生成图片 · Grok Image · grok-imagine-image-2.0 · 2K · 16:9 · medium · 3.2s
+  ![生图结果](/image-studio/files/img-….png)
+  本地文件：C:\…\.dsh\image-studio\outputs\img-….png
+  ```
+- 客户端注册 `conversation.chat.commandview` key=`image`，在有会话的 chat 里渲染图片卡片；命令文本仍保留 URL 和本地路径。
+- 命令名冲突时捕获并警告，面板不受影响。
+
+## 6. Key 与配置存储
+
+```text
+$DSH_HOME/image-studio/
+  credentials.json   { "version": 2, "keys": { "agnes": "…", "openai": "…", "grok": "…", "openai-compatible": "…" } }
+  config.json        { "version": 2, "enabled": true, "defaultProvider": "agnes", "providers": { … } }
+  history.json
+  outputs/
+```
+
+Key 读取优先级（按 provider）：
+
+1. `credentials.json` → `keys[providerId]`（面板写入）
+2. 该 provider 的环境变量：`DSH_IMAGE_STUDIO_AGNES_API_KEY` / `..._OPENAI_API_KEY` / `..._GROK_API_KEY` / `..._OPENAI_COMPATIBLE_API_KEY`
+3. Agnes 额外兼容旧 `DSH_IMAGE_STUDIO_API_KEY`
+4. 无 → `configured:false`
+
+- 不会读取 dsh 的模型凭据、`settings.yaml`、`ctx.credentials` 或画布的 `agnesApiKey`。
+- 状态接口只返回 `masked`（如 `sk-m…-123`）与 `keySource`，不返回完整 Key。
+- 旧版单 provider 文件自动迁移：`{apiKey}` → `keys.agnes`；`{baseUrl,model}` → `providers.agnes`。
+
+配置优先级：面板保存的 `config.json` > 插件部署配置 > preset 默认值。
+
+## 7. Host 路由
+
+| Method | Path | 作用 |
+|---|---|---|
+| GET | `/image-studio/status` | `{enabled, defaultProvider, providers[], storageDir}`，每个 provider 含配置/Key 状态/模型/尺寸/比例/质量 |
+| POST | `/image-studio/setup` | `{providerId?, defaultProvider?, apiKey?, clearKey?, baseUrl?, endpointPath?, model?, size?, ratio?, quality?}` |
+| POST | `/image-studio/generate` | `{provider?, prompt, model?, size?, ratio?, quality?, referenceImages?}` |
+| GET | `/image-studio/history` | 最近 80 条（含 provider） |
+| GET | `/image-studio/files/<id>` | 图片字节；`?download=1` 附件下载 |
+
+安全：loopback socket + Host 头 + Origin + 拒绝 `X-Forwarded-For`/`Forwarded`；文件 ID 白名单 + 解析后目录校验；body 上限 24MB；并发上限。
+
+## 8. 配置字段
+
+顶层：
+
+| 字段 | 默认值 | 说明 |
+|---|---|---|
+| `enabled` | `true` | 总开关 |
+| `defaultProvider` | `agnes` | `/image` 默认服务商 |
+| `providers.<id>` | preset | 每个服务商独立配置 |
+
+每个 provider：
+
+| 字段 | 默认值（按 provider） | 说明 |
+|---|---|---|
+| `baseUrl` | Agnes `https://apihub.agnes-ai.cn`；OpenAI `https://api.openai.com`；Grok `https://api.x.ai`；兼容 `https://api.example.com` | 根地址 |
+| `endpointPath` | `/v1/images/generations` | 可改中转路径 |
+| `model` | Agnes `agnes-image-2.5-flash`；OpenAI `gpt-image-1.5`；Grok `grok-imagine-image-2.0`；兼容 `gpt-image-1` | 默认模型 |
+| `size` | Agnes `2K`；OpenAI `1024x1024`；Grok `1K`；兼容 `auto` | 默认尺寸 |
+| `ratio` | Agnes `1:1`；Grok `1:1`；OpenAI/兼容为空 | 仅比例型服务商 |
+| `quality` | OpenAI `auto`；Grok `medium`；兼容 `auto`；Agnes 空 | 质量 |
+
+`待补充`：
+
+- Agnes 以后新增的模型/尺寸档；
+- xAI 后续 Imagine 模型参数变化；
+- 兼容接口的私有参数（如 `n>1`、seed、negative prompt）目前未暴露 UI，可按需扩展。
+
+## 9. 改动点清单
+
+新增/修改（本插件包）：
+
+| 文件 | 作用 |
+|---|---|
+| `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、请求体、URL 拼接 |
+| `lib/index.js` | Host：配置/Key、路由、生成、错误映射、`/image` |
+| `lib/client.js` | Client：服务商页签、面板、配置弹窗、命令结果视图、主题 CSS |
+| `package.json` / `cordis.patch.yml` | DSH bundle + client 声明 |
+| `icon.svg` | 图标 |
+| `README.md` / `docs/design.md` | 使用与设计 |
+| `scripts/smoke-host.mjs` | 四服务商宿主冒烟 |
+
+Profile（安装自动产生）：
+
+- `~/.dsh/profiles/desktop/package.json`：`dsh-image-studio: link:<plugin 目录>`，`dsh.profile.bundles` 增加 `dsh-image-studio`。
+
+未修改 `open-storyboard-canvas` 仓库。
+
+可选上游重构：把 Agnes 纯函数抽到 `src/shared/agnesRequest.ts`，画布和插件共用；当前为等价移植，避免动用户未提交改动。
+
+## 10. 验证
+
+- **宿主冒烟**（`scripts/smoke-host.mjs`，mock 四个上游）：
+  - 旧版单 Key 文件迁移到 `keys.agnes`；
+  - 四个 provider 分别配置 Key，状态全部 `configured`；
+  - Agnes body 逐字节等于画布契约；
+  - OpenAI body：`{model,prompt,n:1,size,quality}`；
+  - Grok body：`{model,prompt,n:1,response_format:"url",aspect_ratio,resolution,quality}`；
+  - 兼容 body：`{model,prompt,n:1,size}`，`auto` 时省略 size；
+  - 清除 OpenAI Key 不影响 Agnes/Grok；缺 Key 返回 409 且 `error.provider` 正确；
+  - `/image --provider grok …` 走 Grok Key 和参数；
+  - 简写 `/image gpt 2k 16:9 …` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 简写均通过；
+  - 历史 8+ 条、文件路由、路径穿越 404、未知 provider 422。
+- **隔离 profile + headless 浏览器**：
+  - 服务商页签 `Agnes / GPT Image / Grok / 兼容接口`；
+  - 默认 provider 正确选中；
+  - 切换到 GPT Image 后模型/尺寸/质量选项正确，Key chip 显示掩码；
+  - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
+  - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；
+  - mock 请求体确认为标准 OpenAI Images body。
+- **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、未配置警告、配置入口均正常显示。
+
+未验证 / 待补充：
+
+- 本机没有真实 Agnes/OpenAI/xAI Key，未发起真实计费请求；OpenAI/Grok 的 body 按官方/公开文档实现，真实账号首次调用请留意上游参数差异。
+- 有模型会话中的 `/image` 行内图：命令处理器、mock 请求和 commandview 注册已验证；最终 chat 行内图建议在正常会话里目测一次。
+- 参考图编辑（OpenAI `/images/edits`）未开放 UI。
+
+## 11. 边界情况
+
+| 场景 | 行为 |
+|---|---|
+| 当前 provider 未配置 Key | 409 `unconfigured`，文案带 provider 名称；面板弹出该 provider 配置；`/image` 返回同文案 |
+| Key 无效 | 401/403 → `auth`，文案如 `OpenAI GPT Image Key 无效或无权限（HTTP 401）。上游信息：…` |
+| 未知 provider | 422 `bad-request`：`未知的生图服务商：xxx` |
+| Base URL/接口路径错 | 404 文案带当前 URL，提示检查 Base URL / 接口路径 |
+| 参数被拒 | 400/422 → `bad-request`，带上游 message |
+| 额度/限流 | 402 `quota`；429 `rate-limit` |
+| 超时 | 504 `timeout`，提示调高 timeoutMs |
+| 网络失败 | 502 `network`，带 provider 与 baseUrl |
+| 200 无图 | 502 `no-image`，带 400 字响应预览 |
+| Key 含空白/过短 | setup 422，不写盘 |
+| 清某一家 Key | 只删 `keys.<id>`，其他 provider 不受影响 |
+| 路径穿越 | 404 |
+| 命令名冲突 | 捕获警告，面板照常 |
+
+## 12. 参考
+
+- OpenAI Images API：<https://platform.openai.com/docs/guides/image-generation>
+- xAI Imagine / Image Generation：<https://docs.x.ai/developers/model-capabilities/imagine>
+- open-storyboard-canvas Agnes 实现：`customProviderGateway.ts` / `customProvidersStore.ts`（本地仓库）

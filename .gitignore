@@ -1,0 +1,7 @@
+node_modules/
+_smoke-home/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db

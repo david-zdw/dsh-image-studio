@@ -1,0 +1,58 @@
+{
+  "name": "dsh-image-studio",
+  "displayName": "生图工作台",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Sidebar image workbench for DeepSeek Harness: Agnes, OpenAI GPT Image, Grok Image and OpenAI-compatible endpoints, each with its own key, plus an /image slash command.",
+  "icon": "icon.svg",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/providers.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "docs/design.md",
+    "docs/panel.png",
+    "LICENSE",
+    ".gitignore"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "image-generation",
+    "agnes"
+  ],
+  "license": "MIT",
+  "author": "David (david-zdw)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-zdw/dsh-image-studio.git"
+  },
+  "homepage": "https://github.com/david-zdw/dsh-image-studio#readme",
+  "bugs": {
+    "url": "https://github.com/david-zdw/dsh-image-studio/issues"
+  }
+}

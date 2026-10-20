@@ -1,0 +1,6 @@
+# Bundle patch layer: the row loads this package's main entry as the Host half
+# (lib/index.js).  The package's `dsh.client` declaration makes the web app load
+# ./lib/client.js as the browser half.
+- insert:
+    - id: image-studio
+      name: dsh-image-studio
