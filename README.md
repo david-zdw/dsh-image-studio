@@ -1,6 +1,6 @@
 # dsh-image-studio · 生图工作台
 
-DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 斜杠命令，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口。
+DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 斜杠命令，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与参考图图生图。
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -8,25 +8,26 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 - **四个服务商，四个独立 Key**：互不回退、互不覆盖；Key 只保存在本机插件目录，不写入 dsh 模型凭据或其他插件配置。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
-- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、Ctrl/⌘+Enter、**整块画布随机呼吸的矩阵点动画（矩形边缘渐隐）**、结果预览、**下载原图**、复制路径、最近 80 张历史。
+- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界）**、结果预览、**下载原图**、复制路径、最近 80 张历史。
+- **图生图**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，点选或拖入；Agnes 走 `extra_body.image`，OpenAI / 兼容走 `multipart /v1/images/edits`，Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
 - **`/image` 命令**：`/image --provider openai --size 1024x1024 --quality high <提示词>`，直接在对话命令面出图。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
 - **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示。
 
 ![生成中的矩阵点动画](docs/loading.png)
 
-*生成中：矩阵点铺满整个结果画布，边缘按矩形渐隐；左右卡片等高，下方「最近生成」在同一屏内可见。*
+*生成中：矩阵点铺满整块画布，中心向外扩散波动，遮罩扩展到画布边界；左右卡片等高，下方「最近生成」在同一屏内可见。*
 
 ## 服务商
 
-| id | 面板名称 | 默认 Base URL | 默认模型 | 参数形态 |
-|---|---|---|---|---|
-| `agnes` | Agnes | `https://apihub.agnes-ai.cn` | `agnes-image-2.5-flash` | `size` 档位 1K–4K + `ratio` |
-| `openai` | OpenAI GPT Image | `https://api.openai.com` | `gpt-image-1.5` | 像素 `size` + `quality`；DALL·E 3 自动切换尺寸/质量 |
-| `grok` | Grok Image | `https://api.x.ai` | `grok-imagine-image-2.0` | `aspect_ratio` + `resolution`（1K/2K）+ `quality` |
-| `openai-compatible` | OpenAI 兼容 | `https://api.example.com` | `gpt-image-1` | 自己填 Base URL / 接口路径 / 模型，标准 Images body |
+| id | 面板名称 | 默认 Base URL | 默认模型 | 参数形态 | 图生图 |
+|---|---|---|---|---|---|
+| `agnes` | Agnes | `https://apihub.agnes-ai.cn` | `agnes-image-2.5-flash` | `size` 档位 1K–4K + `ratio` | 同 generations，`extra_body.image` |
+| `openai` | OpenAI GPT Image | `https://api.openai.com` | `gpt-image-1.5` | 像素 `size` + `quality`；DALL·E 3 自动切换尺寸/质量 | `multipart /v1/images/edits`（DALL·E 3 不支持） |
+| `grok` | Grok Image | `https://api.x.ai` | `grok-imagine-image-2.0` | `aspect_ratio` + `resolution`（1K/2K）+ `quality` | JSON `/v1/images/edits`，`images[]` |
+| `openai-compatible` | OpenAI 兼容 | `https://api.example.com` | `gpt-image-1` | 自己填 Base URL / 接口路径 / 模型，标准 Images body | `multipart /v1/images/edits` |
 
-OpenAI 兼容档可接任意 `POST /images/generations` 风格的中转/聚合器；模型名、尺寸、接口路径都可以在面板里改。
+OpenAI 兼容档可接任意 `POST /images/generations` 风格的中转/聚合器；模型名、尺寸、接口路径都可以在面板里改。图生图接口按生成路径把 `generations` 替换为 `edits`（默认 `/v1/images/edits`），Base URL 不变。
 
 ## 安装
 
@@ -52,8 +53,9 @@ dsh plugin --profile desktop remove dsh-image-studio
 1. 点击侧边栏「生图工作台」。
 2. 选择服务商页签（Agnes / GPT Image / Grok / 兼容接口）。
 3. 点右上角「配置」，给**当前服务商**填 Key、Base URL、模型、默认参数。
-4. 输入提示词，点「生成图片」。
-5. 生成后结果右上角有「下载原图」（PNG/JPEG/WebP）和「复制路径」。
+4. 需要图生图时，在提示词下方点「添加参考图」，选择或拖入一张 PNG / JPEG / WebP；缩略图会显示在参考图区域，可随时更换/移除。
+5. 输入提示词，点「生成图片」。
+6. 生成后结果右上角有「下载原图」（PNG/JPEG/WebP）和「复制路径」；参考图生成的结果会带「参考图 1」标记。
 
 或直接发送：
 
@@ -73,6 +75,8 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 `--provider` 支持 `agnes`、`openai`（别名 `gpt`）、`grok`、`openai-compatible`（别名 `compatible`/`custom`）。
 
+`/image` 命令目前是文生图；图生图请用面板里的「添加参考图」。
+
 ## 数据位置
 
 | 路径 | 内容 |
@@ -81,6 +85,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 | `$DSH_HOME/image-studio/config.json` | `defaultProvider` 与每个服务商的 Base URL / 模型 / 默认参数 |
 | `$DSH_HOME/image-studio/history.json` | 最近 80 条生成元数据（含 provider） |
 | `$DSH_HOME/image-studio/outputs/` | 生成的 PNG/JPEG/WebP/GIF |
+| 参考图 | 只在浏览器内存中参与当前请求；不写入 history、outputs 或任何配置文件 |
 
 `$DSH_HOME` 默认是 `~/.dsh`（Windows：`C:\Users\<你>\.dsh`）。
 

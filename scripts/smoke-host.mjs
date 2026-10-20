@@ -24,14 +24,19 @@ const upstream = http.createServer(async (req, res) => {
     res.end(PNG)
     return
   }
-  const match = /^\/(agnes|openai|grok|custom)\/v1\/images\/generations$/.exec(req.url || '')
+  const match = /^\/(agnes|openai|grok|custom)\/v1\/images\/(generations|edits)$/.exec(req.url || '')
   if (req.method === 'POST' && match) {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
-    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    const raw = Buffer.concat(chunks).toString('utf8')
+    const contentType = req.headers['content-type'] || ''
+    let body = null
+    if (!/multipart\/form-data/i.test(contentType)) {
+      try { body = JSON.parse(raw) } catch { body = null }
+    }
     const provider = match[1]
-    requests.push({ provider, auth: req.headers.authorization, body })
-    if (provider === 'grok') {
+    requests.push({ provider, auth: req.headers.authorization, body, raw, contentType, path: req.url })
+    if (provider === 'grok' && match[2] === 'generations') {
       const host = req.headers.host
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ data: [{ url: `http://${host}/download.png` }] }))
@@ -288,6 +293,68 @@ assert(invocation.text.includes('Grok Image'), '/image reports the provider')
 assert(requests.findLast((item) => item.provider === 'grok').body.prompt === 'a whale', '/image parses the prompt')
 assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2K', '/image parses --size')
 assert(requests.findLast((item) => item.provider === 'grok').body.aspect_ratio === '1:1', '/image parses --ratio')
+
+// Image-to-image: Agnes JSON extra_body / OpenAI multipart / Grok JSON edits.
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: { providerId: 'openai', apiKey: 'sk-openai-1234567890' },
+})
+assert(result.status === 200, 'openai key restored for img2img tests')
+const reference = `data:image/png;base64,${PNG.toString('base64')}`
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'agnes', prompt: 'paint it blue', size: '2K', ratio: '1:1', referenceImages: [reference] },
+})
+assert(result.status === 200 && result.json.ok === true, 'agnes img2img succeeds')
+const agnesEdit = requests.findLast((item) => item.provider === 'agnes' && item.path.includes('/generations'))
+assert(Array.isArray(agnesEdit.body.extra_body.image) && agnesEdit.body.extra_body.image[0] === reference, 'agnes sends extra_body.image')
+assert(result.json.value.referenceCount === 1, 'agnes record counts the reference')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'edit this apple', model: 'gpt-image-1.5', size: '1024x1024', quality: 'high', referenceImages: [reference] },
+})
+assert(result.status === 200 && result.json.ok === true, 'openai img2img succeeds')
+const openaiEdit = requests.findLast((item) => item.provider === 'openai')
+assert(openaiEdit.path.endsWith('/v1/images/edits'), 'openai uses images/edits')
+assert(/multipart\/form-data/i.test(openaiEdit.contentType), 'openai sends multipart/form-data')
+assert(openaiEdit.raw.includes('name="prompt"') && openaiEdit.raw.includes('edit this apple'), 'openai multipart carries the prompt')
+assert(openaiEdit.raw.includes('name="image"') && openaiEdit.raw.includes('filename="reference-1.png"'), 'openai multipart carries the reference file')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'grok', prompt: 'make it night', size: '2K', ratio: '16:9', quality: 'low', referenceImages: [reference] },
+})
+assert(result.status === 200 && result.json.ok === true, 'grok img2img succeeds')
+const grokEdit = requests.findLast((item) => item.provider === 'grok')
+assert(grokEdit.path.endsWith('/v1/images/edits'), 'grok uses images/edits')
+assert(Array.isArray(grokEdit.body.images) && grokEdit.body.images[0] === reference, 'grok sends images[]')
+assert(grokEdit.body.aspect_ratio === '16:9' && grokEdit.body.resolution === '2K', 'grok edit keeps ratio/resolution')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai-compatible', prompt: 'custom edit', model: 'my-image-model', size: '1024x1024', referenceImages: [reference] },
+})
+assert(result.status === 200 && result.json.ok === true, 'custom img2img succeeds')
+const customEdit = requests.findLast((item) => item.provider === 'custom')
+assert(customEdit.path.endsWith('/v1/images/edits'), 'custom uses images/edits')
+assert(/multipart\/form-data/i.test(customEdit.contentType), 'custom sends multipart/form-data')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'x', model: 'dall-e-3', referenceImages: [reference] },
+})
+assert(result.status === 422 && /DALL·E 3/.test(result.json.error.message), 'DALL-E 3 reference is rejected clearly')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'agnes', prompt: 'x', referenceImages: ['not-an-image'] },
+})
+assert(result.status === 422 && /参考图/.test(result.json.error.message), 'invalid reference is rejected clearly')
+
+result = await call('/image-studio/history')
+assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
 
 // Path traversal refusal.
 result = await call('/image-studio/files/../credentials.json')

@@ -79,7 +79,8 @@ Authorization: Bearer <openai key>
 - 命令里的友好档位会映射到像素：`2k`/`4k` + 横图 → `1536x1024`，竖图 → `1024x1536`，方形 → `1024x1024`；也可直接写像素。
 - DALL·E 3 尺寸：`1024x1024`、`1792x1024`、`1024x1792`；质量 `standard/hd`。
 - 面板在切换模型时自动切换尺寸/质量选项；`quality=auto` 时不发送，使用上游默认。
-- 参考图编辑需要 `/v1/images/edits` multipart，当前面板只做纯文本生图。
+- 图生图：`POST /v1/images/edits`，`multipart/form-data`，字段 `model / prompt / n / size / quality` + 一个 `image` 文件；DALL·E 3 不支持编辑，会返回明确错误。
+- 编辑路径由生成路径把 `generations` 替换为 `edits`，默认 `/v1/images/edits`。
 
 ### 2.3 Grok Image（xAI Imagine）
 
@@ -96,6 +97,7 @@ Authorization: Bearer <xai key>
 - 模型：`grok-imagine-image-2.0`（默认）/ `grok-imagine-image`。
 - `resolution` 使用 `1K` / `2K`；`aspect_ratio` 支持 `1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9/5:2`。
 - 响应通常为 `data[0].url`，Host 下载后落盘。
+- 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…"]`，比例/分辨率/质量沿用同一套参数；单张参考图也用一元素数组。
 - xAI 的旧 `grok-2-image-1212` 参数不同，未列入默认；如要接旧模型，需要另加 branch 或自建兼容接口。
 
 > 参考：xAI Imagine 文档（`docs.x.ai/developers/model-capabilities/imagine`）与 Grok Imagine Image 2.0 的 `aspect_ratio` / `resolution` / `quality` 说明。若 xAI 调整参数，改 `lib/providers.js` 的 `buildRequestBody` 即可，UI 配置可继续复用。
@@ -111,6 +113,7 @@ Authorization: Bearer <xai key>
 - 默认 Base URL `https://api.example.com`，必须由用户改成自己的中转地址。
 - `size=auto` 时**省略 `size` 字段**，尽量兼容不同聚合器。
 - 质量只在不是 `auto` 时发送。
+- 图生图：`multipart /v1/images/edits`（`image` 文件 + 同一套字段）；不支持编辑的中转会返回上游错误。
 - 响应仍按 `data[0].b64_json|url`、`images[]`、嵌套 JSON 字符串等深度扫描。
 
 ## 3. Provider 抽象与两条调用链路
@@ -126,8 +129,12 @@ PROVIDERS[id] = {
   qualities, defaultQuality, qualityByModel, supportsQuality,
   keyPlaceholder, envKeys, editableEndpoint, sizeMode
 }
-buildRequestBody(preset, config, request) → {body, model, size, ratio, quality}
-buildEndpointUrl(config)
+buildRequestBody(preset, config, request) → {
+  body, model, size, ratio, quality, referenceCount,
+  mode?: 'multipart', endpointPath?: string, files?: [{dataUrl,mime,filename}]
+}
+buildEndpointUrl(config, overridePath?)
+buildEditEndpointPath(config)
 ```
 
 Host：
@@ -140,15 +147,18 @@ async function generateImage(pluginConfig, input) {
   const key = credentialFor(credentialsDoc, preset).key
   if (!key) throw unconfigured(preset)
   const built = buildRequestBody(preset, config, input)
-  const {buffer, mime} = await requestGeneration(preset, config, key, built.body)
-  // 落盘 + history + 返回 provider/model/size/ratio/quality/url/filePath
+  const {buffer, mime} = await requestGeneration(preset, config, key, built)
+  // JSON 或 multipart 由 built.mode 决定；落盘 + history + 返回 referenceCount
 }
 ```
 
 面板：
 
 ```text
-POST /image-studio/generate {provider, prompt, model, size, ratio?, quality?}
+POST /image-studio/generate {
+  provider, prompt, model, size, ratio?, quality?,
+  referenceImages?: ["data:image/png;base64,…"]
+}
   → generateImage(pluginConfig, body)
 ```
 
@@ -177,9 +187,9 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 - 顶部：图标 + 标题 + 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
-- 左列：提示词（4000 字上限）、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法。
-- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；生成中在整块结果画布内显示随机呼吸的矩阵点（Canvas 绘制，非中心发散；边缘按矩形渐隐；`prefers-reduced-motion` 时静止）。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
-- 底部：最近 80 张历史缩略图。
+- 左列：提示词（4000 字上限）、**参考图（添加/更换/移除，PNG/JPEG/WebP，可拖入，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界；`prefers-reduced-motion` 时静止）。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
+- 底部：无独立区块，历史在右卡底部。
 - 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；清除 Key 只清当前服务商。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
 
@@ -225,6 +235,7 @@ ctx.inject(['commands'], (commandsCtx) => {
 - 质量仍用 `--quality`（避免把提示词里的 “high quality” 误吞）。
 - GPT Image 没有 2K/4K 档：`gpt 2k 16:9` 会映射为 `1536x1024`，`gpt 2k 9:16` → `1024x1536`，方形 → `1024x1024`；其他 OpenAI 尺寸仍可直接写像素。
 - 未写 `--provider` 时用 `config.json` 的 `defaultProvider`；点击面板页签会更新它。
+- 命令是文生图，暂不接受参考图；图生图请用面板的「添加参考图」。
 - 结果：
   ```text
   已生成图片 · Grok Image · grok-imagine-image-2.0 · 2K · 16:9 · medium · 3.2s
@@ -302,9 +313,9 @@ Key 读取优先级（按 provider）：
 
 | 文件 | 作用 |
 |---|---|
-| `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、请求体、URL 拼接 |
-| `lib/index.js` | Host：配置/Key、路由、生成、错误映射、`/image` |
-| `lib/client.js` | Client：服务商页签、面板、配置弹窗、命令结果视图、主题 CSS |
+| `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、文生图/图生图请求体、参考图校验、URL 拼接 |
+| `lib/index.js` | Host：配置/Key、路由、生成、JSON/multipart 传输、错误映射、`/image` |
+| `lib/client.js` | Client：服务商页签、参考图上传/预览、面板、配置弹窗、命令结果视图、主题 CSS |
 | `package.json` / `cordis.patch.yml` | DSH bundle + client 声明 |
 | `icon.svg` | 图标 |
 | `README.md` / `docs/design.md` | 使用与设计 |
@@ -330,7 +341,8 @@ Profile（安装自动产生）：
   - 清除 OpenAI Key 不影响 Agnes/Grok；缺 Key 返回 409 且 `error.provider` 正确；
   - `/image --provider grok …` 走 Grok Key 和参数；
   - 简写 `/image gpt 2k 16:9 …` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 简写均通过；
-  - 历史 8+ 条、文件路由、路径穿越 404、未知 provider 422。
+  - 图生图：Agnes `extra_body.image`、OpenAI/兼容 `multipart /v1/images/edits`、Grok JSON `/v1/images/edits` `images[]` 均通过；DALL·E 3 参考图 422；非法参考图 422；history `referenceCount` 正确；
+  - 历史 8+ 条、文件路由、参数传递、路径穿越 404、未知 provider 422。
 - **隔离 profile + headless 浏览器**：
   - 服务商页签 `Agnes / GPT Image / Grok / 兼容接口`；
   - 默认 provider 正确选中；
@@ -338,15 +350,16 @@ Profile（安装自动产生）：
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；
   - mock 请求体确认为标准 OpenAI Images body；
-  - 加载态：Canvas 与结果区同尺寸（510×450），点阵铺满整个矩形、矩形边缘渐隐，无 spinner；
+  - 参考图上传：文件选择/拖入后出现缩略图与尺寸，Agnes 请求 `extra_body.image` 长度为 1，结果 meta 出现「参考图 1」；
+  - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界，无 spinner；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、参考图区域、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
 - 本机没有真实 Agnes/OpenAI/xAI Key，未发起真实计费请求；OpenAI/Grok 的 body 按官方/公开文档实现，真实账号首次调用请留意上游参数差异。
 - 有模型会话中的 `/image` 行内图：命令处理器、mock 请求和 commandview 注册已验证；最终 chat 行内图建议在正常会话里目测一次。
-- 参考图编辑（OpenAI `/images/edits`）未开放 UI。
+- 参考图真实上游未用真实计费 Key 验证：OpenAI multipart / Grok JSON edits 按官方接口实现，首次使用请留意上游参数/字段差异。
 
 ## 11. 边界情况
 
@@ -363,11 +376,17 @@ Profile（安装自动产生）：
 | 200 无图 | 502 `no-image`，带 400 字响应预览 |
 | Key 含空白/过短 | setup 422，不写盘 |
 | 清某一家 Key | 只删 `keys.<id>`，其他 provider 不受影响 |
+| 参考图格式/大小不合法 | 422 `bad-request`，文案指出第几张、只接受 PNG/JPEG/WebP、上限 12MB |
+| DALL·E 3 + 参考图 | 422 `bad-request`：DALL·E 3 不支持参考图，请切到 gpt-image 系列 |
+| 兼容中转不支持 edits | 上游 4xx 原样映射，提示检查编辑接口路径/中转能力 |
+| 参考图持久化 | 只在浏览器内存中参与当前请求，不写 history/outputs/配置文件 |
 | 路径穿越 | 404 |
 | 命令名冲突 | 捕获警告，面板照常 |
 
 ## 12. 参考
 
 - OpenAI Images API：<https://platform.openai.com/docs/guides/image-generation>
+- OpenAI Create image edit：<https://platform.openai.com/docs/api-reference/images/createEdit>
 - xAI Imagine / Image Generation：<https://docs.x.ai/developers/model-capabilities/imagine>
+- xAI edit endpoint：<https://docs.x.ai/developers/model-capabilities/imagine/files/inputs>
 - open-storyboard-canvas Agnes 实现：`customProviderGateway.ts` / `customProvidersStore.ts`（本地仓库）
