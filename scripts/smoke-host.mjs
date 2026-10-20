@@ -425,15 +425,22 @@ result = await call('/image-studio/setup', {
     providerId: 'openai',
     model: 'gpt-image-2.5-sunburst',
     models: ['gpt-image-2.5-sunburst', 'gpt-image-1.5'],
-    size: '4096x4096',
+    size: '4K',
     ratio: '1:1',
   },
 })
 assert(result.status === 200, 'setup saves selected models')
 const customized = result.json.value.providers.find((item) => item.id === 'openai')
 assert(JSON.stringify(customized.models) === JSON.stringify(['gpt-image-2.5-sunburst', 'gpt-image-1.5']), 'only selected models are exposed')
-assert(customized.size === '4096x4096', 'custom GPT model accepts a 4K size')
+assert(customized.size === '4K', 'custom GPT model exposes the 4K tier')
 assert(customized.supportsRatio === true, 'custom GPT model supports ratio')
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', model: 'gpt-image-2.5-sunburst', prompt: 'a 4k cover', size: '4K', ratio: '16:9' },
+})
+assert(result.status === 200, 'custom GPT 4K generation succeeds')
+assert(requests.findLast((item) => item.provider === 'openai').body.size === '3840x2160', '4K + 16:9 maps to 3840x2160')
+assert(result.json.value.size === '3840x2160', 'result records the computed pixel size')
 
 
 // Path traversal refusal.

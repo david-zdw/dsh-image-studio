@@ -54,7 +54,7 @@ Content-Type: application/json
 {"model":"agnes-image-2.5-flash","prompt":"…","size":"2K","ratio":"16:9","return_base64":true}
 ```
 
-参考图时改为（可以传 1–5 张，`image` 为数组）：
+参考图时改为（可以传 1–5 张，`image` 为数组）；OpenAI 自定义 GPT 模型的面板尺寸为 1K/2K/3K/4K，请求时按比例换算像素：
 
 ```json
 {"model":"…","prompt":"…","size":"2K","ratio":"16:9",
@@ -80,6 +80,7 @@ Authorization: Bearer <openai key>
 - DALL·E 3 尺寸：`1024x1024`、`1792x1024`、`1024x1792`；质量 `standard/hd`。
 - 面板在切换模型时自动切换尺寸/质量选项；`quality=auto` 时不发送，使用上游默认。
 - 图生图：`POST /v1/images/edits`，`multipart/form-data`，字段 `model / prompt / n / size / quality` + 1–5 个 `image` 文件（重复 `image` 字段）；DALL·E 3 不支持编辑，会返回明确错误。
+- 自定义 GPT 模型：面板尺寸为 `1K/2K/3K/4K`，比例换算成像素后写入 `size`（4K+16:9 → `3840x2160`）；官方 gpt-image-1.x 仍用其固定像素尺寸。
 - 编辑路径由生成路径把 `generations` 替换为 `edits`，默认 `/v1/images/edits`。
 
 ### 2.3 Grok Image（xAI Imagine）
@@ -184,7 +185,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.7.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.8.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -252,7 +253,7 @@ ctx.systemPrompt.section({
 
   本地文件：C:\…\.dsh\image-studio\outputs\img-….png
   ```
-- 工具输出 `render` 返回 Markdown 文本；客户端注册 `tool.call.toolview` key=`image_studio_generate`，从工具结果中解析图片 URL 并渲染大图，不依赖通用工具卡片对 Markdown 图片的处理。旧会话里的历史 commandview 卡片仍保留。
+- 工具输出 `render` 返回 Markdown 文本；客户端注册 `tool.call.toolview` key=`image_studio_generate`，从工具结果中解析图片 URL 并渲染大图，提供「打开本地文件 / 打开原图」。系统提示要求模型把该 Markdown 图片也带回最终回复，保证对话内联显示。旧会话里的历史 commandview 卡片仍保留。
 - 系统提示片段确保模型把 `/image` 当工具请求，而不是普通文本回复；工具描述同时保留这条规则。
 
 ## 6. Key 与配置存储
@@ -346,7 +347,7 @@ Profile（安装自动产生）：
 - **宿主冒烟**（`scripts/smoke-host.mjs`，mock 四个上游）：
   - 旧版单 Key 文件迁移到 `keys.agnes`；
   - 四个 provider 分别配置 Key，状态全部 `configured`；
-  - 模型嗅探：四个 provider 的 `GET /v1/models` 均返回图像模型并标 `imageLike`；未知 provider 422；`models` 多选保存后只暴露勾选模型；自定义 GPT 模型接受 `4096x4096` 且 `supportsRatio=true`；
+  - 模型嗅探：四个 provider 的 `GET /v1/models` 均返回图像模型并标 `imageLike`；未知 provider 422；`models` 多选保存后只暴露勾选模型；自定义 GPT 模型暴露 1K/2K/3K/4K 档，4K + 16:9 映射 `3840x2160` 且 `supportsRatio=true`；
   - 历史删除：`DELETE /history/<id>` 同时移除记录与文件，重复删除 404；`filePath` 随历史返回；
   - Agnes body 逐字节等于画布契约；
   - OpenAI body：`{model,prompt,n:1,size,quality}`；
@@ -363,6 +364,8 @@ Profile（安装自动产生）：
   - 服务商页签 `Agnes / GPT Image / Grok / 兼容接口`；
   - 默认 provider 正确选中；
   - 切换到 GPT Image 后模型/尺寸/质量选项正确，Key chip 显示掩码；
+  - 自定义 GPT 模型尺寸只有 1K/2K/3K/4K；比例切换后显示实际像素（如 4K + 16:9 → 3840x2160），官方 gpt-image-1.x 不显示这些档位；
+  - `/image` 工具结果卡有图片和「打开本地文件 / 打开原图」，模型最终回复也包含图片 Markdown；
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；Agnes 页有「获取 Agnes Key」；
   - 配置弹窗的「嗅探模型」显示模型 chips，可多选，图像模型带「图像」标记；保存后主面板模型下拉只出现勾选项；
@@ -376,7 +379,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.7.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.8.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
