@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.5.2** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.6.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -10,9 +10,10 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 - **四个服务商，四个独立 Key**：互不回退、互不覆盖；Key 只保存在本机插件目录，不写入 dsh 模型凭据或其他插件配置。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
-- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**下载原图**、复制路径、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格。
+- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**全屏看图**、**下载原图**、复制路径、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格。
 - **图生图（最多 5 张参考图）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
 - **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；图片以工具结果返回当前对话，输入框正常清空，可继续聊天。同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。
+- **模型嗅探**：配置 Key 后在「生图设置」点「嗅探模型」，用已保存的 Key 拉取服务商 `/v1/models`；图像模型优先展示，点击填入默认模型后保存。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
 - **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示。
 
@@ -52,7 +53,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 ## 更新
 
-当前版本 `v0.5.2`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.5.2`，可以用它确认是否生效。
+当前版本 `v0.6.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.6.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -62,7 +63,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.5.2
+git checkout v0.6.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -91,10 +92,10 @@ $DSH_HOME/image-studio/
 
 1. 点击侧边栏「生图工作台」。
 2. 选择服务商页签（Agnes / GPT Image / Grok / 兼容接口）。
-3. 点右上角「配置」，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。
+3. 点右上角「配置」，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。保存 Key 后可点「嗅探模型」，从服务商 `/v1/models` 拉取列表，图像模型会标「图像」。
 4. 需要图生图时，在提示词下方点「添加参考图」，可选择或拖入多张 PNG / JPEG / WebP（最多 5 张）；缩略图会显示在参考图区域，可逐张移除。
 5. 输入提示词，点「生成图片」。
-6. 生成后结果右上角有「下载原图」（PNG/JPEG/WebP）和「复制路径」；参考图生成的结果会带「参考图 N」标记。
+6. 生成后结果右上角有全屏图标、**下载原图**（PNG/JPEG/WebP）和「复制路径」；点全屏图标或图片本身可全屏查看（Esc/点背景关闭），参考图生成的结果会带「参考图 N」标记。
 
 或直接发送：
 

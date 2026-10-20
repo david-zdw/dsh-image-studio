@@ -184,12 +184,12 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.5.2`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.6.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
-- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。静止/出图状态显示静态矩阵点，生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止），不再使用棋盘格。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
-- 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；Agnes 附带「获取 Agnes Key」直达 `https://platform.agnes-ai.cn/`（另附国际站），清除 Key 只清当前服务商。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**全屏看图**（结果卡图标/点图打开；Esc/点背景关闭，全屏内可下载）、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。静止/出图状态显示静态矩阵点，生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止），不再使用棋盘格。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
+- 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；Agnes 附带「获取 Agnes Key」直达 `https://platform.agnes-ai.cn/`（另附国际站），清除 Key 只清当前服务商。默认模型旁有「嗅探模型」：用已保存的 Key 请求 `GET /v1/models`，图像模型优先并标「图像」，点击填入。
 - 底部：无独立区块，历史在右卡底部。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
 
@@ -284,6 +284,7 @@ Key 读取优先级（按 provider）：
 |---|---|---|
 | GET | `/image-studio/status` | `{enabled, version, defaultProvider, providers[], storageDir}`，每个 provider 含配置/Key 状态/模型/尺寸/比例/质量 |
 | POST | `/image-studio/setup` | `{providerId?, defaultProvider?, apiKey?, clearKey?, baseUrl?, endpointPath?, model?, size?, ratio?, quality?}` |
+| POST | `/image-studio/models` | `{provider}`；用已保存的 Key 请求该 provider 的 `GET /v1/models`，返回 `{provider, providerLabel, endpoint, models:[{id,imageLike}], fetchedAt}`，不回传 Key |
 | POST | `/image-studio/generate` | `{provider?, prompt, model?, size?, ratio?, quality?, referenceImages?}` |
 | GET | `/image-studio/history` | 最近 80 条（含 provider） |
 | GET | `/image-studio/files/<id>` | 图片字节；`?download=1` 附件下载 |
@@ -344,6 +345,7 @@ Profile（安装自动产生）：
 - **宿主冒烟**（`scripts/smoke-host.mjs`，mock 四个上游）：
   - 旧版单 Key 文件迁移到 `keys.agnes`；
   - 四个 provider 分别配置 Key，状态全部 `configured`；
+  - 模型嗅探：四个 provider 的 `GET /v1/models` 均返回图像模型并标 `imageLike`；未知 provider 422；
   - Agnes body 逐字节等于画布契约；
   - OpenAI body：`{model,prompt,n:1,size,quality}`；
   - Grok body：`{model,prompt,n:1,response_format:"url",aspect_ratio,resolution,quality}`；
@@ -361,13 +363,15 @@ Profile（安装自动产生）：
   - 切换到 GPT Image 后模型/尺寸/质量选项正确，Key chip 显示掩码；
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；Agnes 页有「获取 Agnes Key」；
+  - 配置弹窗的「嗅探模型」显示模型 chips，图像模型带「图像」标记，点击填入默认模型；选中并保存后主面板模型下拉保留该模型；
+  - 结果卡全屏图标/点击图片打开全屏层，Esc 或点背景关闭，全屏内可下载原图；
   - mock 请求体确认为标准 OpenAI Images body；
   - 参考图上传：一次选择两张后出现两个缩略图，可逐张移除；Agnes 请求 `extra_body.image` 长度为 2，结果 meta 出现「参考图 2」；
   - 超过 5 张被拒绝；DALL·E 3 下参考图入口禁用/生成按钮禁用；
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.5.2`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.6.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
@@ -392,6 +396,8 @@ Profile（安装自动产生）：
 | 清某一家 Key | 只删 `keys.<id>`，其他 provider 不受影响 |
 | 参考图格式/大小不合法 | 422 `bad-request`，文案指出第几张、只接受 PNG/JPEG/WebP、上限 12MB |
 | 参考图超过 5 张 | 422 `bad-request`；面板最多保留 5 张，超出部分不添加 |
+| `/models` 不支持/空列表 | 502 `upstream`：提示该服务商可能不支持 `GET /models` |
+| 模型嗅探 401/429/超时 | 分别为 401 `auth`、429 `rate-limit`、504 `timeout`，文案带 provider |
 | DALL·E 3 + 参考图 | 422 `bad-request`：DALL·E 3 不支持参考图，请切到 gpt-image 系列 |
 | 兼容中转不支持 edits | 上游 4xx 原样映射，提示检查编辑接口路径/中转能力 |
 | 参考图持久化 | 只在浏览器内存中参与当前请求，不写 history/outputs/配置文件 |

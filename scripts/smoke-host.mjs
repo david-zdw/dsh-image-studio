@@ -24,6 +24,18 @@ const upstream = http.createServer(async (req, res) => {
     res.end(PNG)
     return
   }
+  const modelsMatch = /^\/(agnes|openai|grok|custom)\/v1\/models$/.exec(req.url || '')
+  if (req.method === 'GET' && modelsMatch) {
+    const catalog = {
+      agnes: ['agnes-image-2.5-flash', 'agnes-image-2.0-flash', 'agnes-chat-pro'],
+      openai: ['gpt-image-1.5', 'gpt-image-1', 'text-embedding-3-small'],
+      grok: ['grok-imagine-image-2.0', 'grok-2-image-1212'],
+      custom: ['my-image-model', 'my-chat-model'],
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ data: catalog[modelsMatch[1]].map((id) => ({ id })) }))
+    return
+  }
   const match = /^\/(agnes|openai|grok|custom)\/v1\/images\/(generations|edits)$/.exec(req.url || '')
   if (req.method === 'POST' && match) {
     const chunks = []
@@ -174,6 +186,18 @@ for (const setup of [
 }
 assert(result.json.value.providers.length === 4, 'setup returns provider roster')
 assert(result.json.value.providers.every((item) => item.configured), 'all four providers are configured')
+
+// Model sniffing uses the saved key and derives /v1/models from the image path.
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'agnes' } })
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'agnes-image-2.5-flash' && item.imageLike), 'agnes model sniffing returns image models')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'openai' } })
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'gpt-image-1.5'), 'openai model sniffing returns gpt-image')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'grok' } })
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'grok-imagine-image-2.0'), 'grok model sniffing returns imagine models')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'openai-compatible' } })
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'my-image-model'), 'compatible model sniffing works')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nope' } })
+assert(result.status === 422, 'unknown provider model sniffing is rejected')
 
 // Agnes body + legacy key.
 result = await call('/image-studio/generate', {
