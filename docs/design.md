@@ -178,7 +178,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法。
-- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；生成中显示从中心扩散的矩阵点呼吸动画（纯 CSS，`prefers-reduced-motion` 时静止）。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；生成中在整块结果画布内显示随机呼吸的矩阵点（Canvas 绘制，非中心发散；`prefers-reduced-motion` 时静止）。「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
 - 底部：最近 80 张历史缩略图。
 - 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；清除 Key 只清当前服务商。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
@@ -337,7 +337,9 @@ Profile（安装自动产生）：
   - 切换到 GPT Image 后模型/尺寸/质量选项正确，Key chip 显示掩码；
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；
-  - mock 请求体确认为标准 OpenAI Images body。
+  - mock 请求体确认为标准 OpenAI Images body；
+  - 加载态：Canvas 与结果区同尺寸（510×270），点阵铺满整个矩形、随机相位呼吸，无 spinner；
+  - 1296×800 视口：`pageScroll = clientHeight = 800`，最近生成底部约 594px，无需滚动。
 - **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
