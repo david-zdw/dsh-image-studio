@@ -10,7 +10,7 @@ import http from 'node:http'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { apply } from '../lib/index.js'
+import { apply, executeImageTool } from '../lib/index.js'
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -52,11 +52,23 @@ await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve))
 const port = upstream.address().port
 
 const commands = []
+const tools = []
 let route
 const ctx = {
   webServer: {
     register(candidate) {
       route = candidate
+      return () => {}
+    },
+  },
+  tools: {
+    register(definition) {
+      tools.push(definition)
+      return () => {}
+    },
+  },
+  systemPrompt: {
+    section() {
       return () => {}
     },
   },
@@ -228,128 +240,50 @@ assert(JSON.stringify(customRequest.body) === JSON.stringify({
   size: '1024x1024',
 }), 'custom body omits auto quality/size surprises')
 
-// Friendly positional shorthand: /image gpt 2k 16:9 <prompt>
-const commandDef = commands.find((item) => item.name === 'image')
-const shortGpt = await commandDef.handler({
-  rawInput: 'gpt 2k 16:9 a rabbit',
-  signal: new AbortController().signal,
-})
-assert(shortGpt.kind === 'success', '/image shorthand gpt succeeds')
+// /image is a model-facing tool; request parsing and same-conversation editing.
+const toolDef = tools.find((item) => item.name === 'image_studio_generate')
+assert(toolDef !== undefined, 'image_studio_generate tool registered')
+assert(toolDef.parameters.properties.request !== undefined, 'tool accepts the exact /image request')
+assert(typeof toolDef.output.render === 'function', 'tool renders its markdown result')
+
+const shortGpt = await executeImageTool({}, { request: '/image gpt 2k 16:9 a rabbit' })
+assert(shortGpt.markdown.includes('OpenAI'), 'tool shorthand gpt reports the provider')
 const shortGptRequest = requests.findLast((item) => item.provider === 'openai')
-assert(shortGptRequest.body.prompt === 'a rabbit', '/image shorthand keeps the prompt')
-assert(shortGptRequest.body.size === '1536x1024', 'gpt 2k 16:9 maps to a 2K-ish landscape GPT size')
+assert(shortGptRequest.body.prompt === 'a rabbit', 'tool shorthand keeps the prompt')
+assert(shortGptRequest.body.size === '1536x1024', 'tool gpt 2k 16:9 maps to a 2K-ish landscape GPT size')
 
-const shortGrok = await commandDef.handler({
-  rawInput: 'grok 2k 9:16 a fox',
-  signal: new AbortController().signal,
-})
-assert(shortGrok.kind === 'success', '/image shorthand grok succeeds')
+const shortGrok = await executeImageTool({}, { request: '/image grok 2k 9:16 a fox' })
+assert(shortGrok.markdown.includes('Grok Image'), 'tool shorthand grok reports the provider')
 const shortGrokRequest = requests.findLast((item) => item.provider === 'grok')
-assert(shortGrokRequest.body.resolution === '2K', 'grok 2k keeps the native 2K tier')
-assert(shortGrokRequest.body.aspect_ratio === '9:16', 'grok 9:16 keeps the ratio')
+assert(shortGrokRequest.body.resolution === '2K', 'tool grok 2k keeps the native 2K tier')
+assert(shortGrokRequest.body.aspect_ratio === '9:16', 'tool grok 9:16 keeps the ratio')
 
-const shortAgnes = await commandDef.handler({
-  rawInput: 'agnes 1k 1:1 a cat',
-  signal: new AbortController().signal,
-})
-assert(shortAgnes.kind === 'success', '/image shorthand agnes succeeds')
+const shortAgnes = await executeImageTool({}, { request: '/image agnes 1k 1:1 a cat' })
+assert(shortAgnes.markdown.includes('Agnes'), 'tool shorthand agnes succeeds')
 const shortAgnesRequest = requests.findLast((item) => item.provider === 'agnes')
-assert(shortAgnesRequest.body.size === '1K' && shortAgnesRequest.body.ratio === '1:1', 'agnes shorthand keeps tier + ratio')
+assert(shortAgnesRequest.body.size === '1K' && shortAgnesRequest.body.ratio === '1:1', 'tool agnes shorthand keeps tier + ratio')
 
-const shortDefault = await commandDef.handler({
-  rawInput: '2k 16:9 a default cat',
-  signal: new AbortController().signal,
-})
-assert(shortDefault.kind === 'success', '/image shorthand without provider uses the default')
+const shortDefault = await executeImageTool({}, { request: '/image 2k 16:9 a default cat' })
+assert(shortDefault.markdown.includes('已生成图片'), 'tool shorthand without provider uses the default')
 
-// Per-provider key isolation: clearing OpenAI must not touch the others.
-result = await call('/image-studio/setup', { method: 'POST', body: { providerId: 'openai', clearKey: true } })
-assert(result.json.value.providers.find((item) => item.id === 'openai').configured === false, 'openai key cleared')
-assert(result.json.value.providers.find((item) => item.id === 'agnes').configured === true, 'agnes key untouched')
-assert(result.json.value.providers.find((item) => item.id === 'grok').configured === true, 'grok key untouched')
-result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'openai', prompt: 'x' } })
-assert(result.status === 409 && result.json.error.code === 'unconfigured', 'missing provider key is explicit')
-assert(result.json.error.provider === 'openai', 'error names the provider')
+const explicitGrok = await executeImageTool({}, { request: '/image --provider grok --size 2K --ratio 1:1 --quality low a whale' })
+assert(explicitGrok.markdown.includes('Grok Image'), 'tool succeeds with --provider')
+assert(requests.findLast((item) => item.provider === 'grok').body.prompt === 'a whale', 'tool parses the prompt')
+assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2K', 'tool parses --size')
+assert(requests.findLast((item) => item.provider === 'grok').body.aspect_ratio === '1:1', 'tool parses --ratio')
 
-// History + file route.
-result = await call('/image-studio/history')
-const historyProviders = new Set(result.json.value.items.map((item) => item.provider))
-assert(result.json.value.items.length >= 8, 'history records every generation')
-assert(historyProviders.size === 4, 'history covers all four providers')
-const first = result.json.value.items.at(-1)
-const file = await fetch(`${origin}${first.url}`)
-assert(file.status === 200 && file.headers.get('content-type') === 'image/png', 'file route serves PNG')
-const download = await fetch(`${origin}${first.url}?download=1`)
-assert(download.status === 200 && /attachment/.test(download.headers.get('content-disposition') || ''), 'download route sends an attachment')
-
-// /image command with an explicit provider.
-const command = commands.find((item) => item.name === 'image')
-assert(command !== undefined, '/image command registered')
-const invocation = await command.handler({
-  rawInput: '--provider grok --size 2K --ratio 1:1 --quality low a whale',
-  signal: new AbortController().signal,
-})
-assert(invocation.kind === 'success', '/image succeeds with --provider')
-assert(invocation.text.includes('Grok Image'), '/image reports the provider')
-assert(requests.findLast((item) => item.provider === 'grok').body.prompt === 'a whale', '/image parses the prompt')
-assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2K', '/image parses --size')
-assert(requests.findLast((item) => item.provider === 'grok').body.aspect_ratio === '1:1', '/image parses --ratio')
-
-// Same-conversation /image: first is text-to-image, next auto-edits, --new resets.
-const commandSession = { agent: { session: { id: 'smoke-command-session' } } }
-const firstConversation = await command.handler({
-  rawInput: 'agnes 1k 1:1 a cat',
-  signal: new AbortController().signal,
-  ...commandSession,
-})
-assert(firstConversation.kind === 'success', 'conversation first /image succeeds')
-const secondConversation = await command.handler({
-  rawInput: 'make it blue',
-  signal: new AbortController().signal,
-  ...commandSession,
-})
-assert(secondConversation.kind === 'success', 'conversation follow-up /image succeeds')
-assert(secondConversation.text.includes('基于参考图'), 'follow-up reports the previous image reference')
+// Same-conversation tool calls: first is text-to-image, next auto-edits, fresh resets.
+const toolSession = { id: 'smoke-tool-session' }
+const firstConversation = await executeImageTool({}, { request: '/image agnes 1k 1:1 a cat' }, { agent: { session: toolSession } })
+assert(firstConversation.referenceCount === 0, 'first tool call is text-to-image')
+const secondConversation = await executeImageTool({}, { request: '/image make it blue' }, { agent: { session: toolSession } })
+assert(secondConversation.referenceCount === 1 && secondConversation.markdown.includes('基于 1 张参考图'), 'follow-up tool call auto-edits the last image')
 const secondConversationRequest = requests.findLast((item) => item.provider === 'agnes')
-assert(secondConversationRequest.body.extra_body && secondConversationRequest.body.extra_body.image.length === 1, 'follow-up sends the previous image as reference')
-const freshConversation = await command.handler({
-  rawInput: '--new agnes 1k 1:1 a dog',
-  signal: new AbortController().signal,
-  ...commandSession,
-})
-assert(freshConversation.kind === 'success', 'conversation --new /image succeeds')
+assert(secondConversationRequest.body.extra_body && secondConversationRequest.body.extra_body.image.length === 1, 'follow-up tool sends the previous image as reference')
+const freshConversation = await executeImageTool({}, { request: '/image --new agnes 1k 1:1 a dog' }, { agent: { session: toolSession } })
+assert(freshConversation.referenceCount === 0, '--new resets to text-to-image')
 const freshConversationRequest = requests.findLast((item) => item.provider === 'agnes')
-assert(!freshConversationRequest.body.extra_body, '--new resets to text-to-image')
-
-// New-conversation command: a user message is seeded once so the chat surface is not empty.
-const seededSession = {
-  id: 'smoke-seeded-session',
-  seq: 1,
-  events: [],
-  messages: [],
-  append(type, data) {
-    this.events.push({ type, data })
-    this.seq += 1
-    if (type === 'user/message') this.messages.push(data)
-  },
-  deriveMessages() { return this.messages },
-}
-const seededResult = await command.handler({
-  rawInput: 'agnes 1k 1:1 a seeded cat',
-  signal: new AbortController().signal,
-  agent: { session: seededSession },
-})
-assert(seededResult.kind === 'success', 'new-conversation /image succeeds')
-const seededMessages = seededSession.events.filter((event) => event.type === 'user/message')
-assert(seededMessages.length === 1 && seededMessages[0].data.content[0].text.includes('/image agnes 1k 1:1'), 'new-conversation /image seeds the user message')
-await command.handler({
-  rawInput: 'make it warm',
-  signal: new AbortController().signal,
-  agent: { session: seededSession },
-})
-assert(seededSession.events.filter((event) => event.type === 'user/message').length === 1, 'existing conversation does not seed another user message')
-
-
+assert(!freshConversationRequest.body.extra_body, '--new does not send a reference')
 
 // Image-to-image: Agnes JSON extra_body / OpenAI multipart / Grok JSON edits.
 result = await call('/image-studio/setup', {

@@ -1,6 +1,6 @@
 # 生图工作台（dsh-image-studio）设计说明
 
-> 目标：在 DeepSeek Harness 里做一个与「上下文洞察」同级的一级侧边栏生图插件，支持 **Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容** 四个服务商，每个服务商独立 Key；同时提供 `/image` 斜杠命令。Agnes 复用 `open-storyboard-canvas` 既有请求契约，OpenAI/Grok/兼容档使用各自的标准 Images API。
+> 目标：在 DeepSeek Harness 里做一个与「上下文洞察」同级的一级侧边栏生图插件，支持 **Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容** 四个服务商，每个服务商独立 Key；同时提供 `/image` 对话调用（模型工具 `image_studio_generate`）。Agnes 复用 `open-storyboard-canvas` 既有请求契约，OpenAI/Grok/兼容档使用各自的标准 Images API。
 
 ## 1. 方案概述
 
@@ -19,7 +19,7 @@
 │ Client (lib/client.js, browser)                                           │
 │   sidebar.panellist  「生图工作台」                                          │
 │   main / key=image-studio   面板：服务商页签 + 提示词 + 结果 + 历史         │
-│   conversation.chat.commandview / key=image   /image 结果图                │
+│   工具 image_studio_generate 返回 Markdown 图片                            │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -76,7 +76,7 @@ Authorization: Bearer <openai key>
 
 - 模型：`gpt-image-1.5` / `gpt-image-1` / `gpt-image-1-mini` / `chatgpt-image-latest` / `dall-e-3`。
 - GPT Image 尺寸：`1024x1024`、`1536x1024`、`1024x1536`、`auto`；质量 `auto/low/medium/high`。
-- 命令里的友好档位会映射到像素：`2k`/`4k` + 横图 → `1536x1024`，竖图 → `1024x1536`，方形 → `1024x1024`；也可直接写像素。
+- 工具/short手里的友好档位会映射到像素：`2k`/`4k` + 横图 → `1536x1024`，竖图 → `1024x1536`，方形 → `1024x1024`；也可直接写像素。
 - DALL·E 3 尺寸：`1024x1024`、`1792x1024`、`1024x1792`；质量 `standard/hd`。
 - 面板在切换模型时自动切换尺寸/质量选项；`quality=auto` 时不发送，使用上游默认。
 - 图生图：`POST /v1/images/edits`，`multipart/form-data`，字段 `model / prompt / n / size / quality` + 1–5 个 `image` 文件（重复 `image` 字段）；DALL·E 3 不支持编辑，会返回明确错误。
@@ -184,7 +184,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.4.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.5.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -193,20 +193,26 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 - 底部：无独立区块，历史在右卡底部。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
 
-## 5. `/image` 命令
+## 5. `/image` 对话调用（工具）
 
-Host 注册：
+`/image` **不是** DSH 斜杠命令，而是一段普通用户消息；Host 注册模型工具：
 
 ```js
-ctx.inject(['commands'], (commandsCtx) => {
-  commandsCtx.effect(() => commandsCtx.commands.register({
-    name: 'image',
-    description: '用生图工作台生成图片：/image [gpt|grok|agnes] [2k] [16:9] <提示词>',
-    input: { hint: '例如：/image gpt 2k 16:9 一只猫；也支持 --provider / --size / --ratio' },
-    async handler(invocation) { … }
-  }))
+ctx.tools.register({
+  name: 'image_studio_generate',
+  description: '…Call this whenever a user message begins with "/image" …',
+  parameters: { request, prompt, provider, size, ratio, quality, model, fresh },
+  output: { schema, render: (_args, value) => [{ type: 'text', text: value.markdown }] },
+  async execute(args, exec) { return executeImageTool(pluginConfig, args, exec) },
+})
+ctx.systemPrompt.section({
+  name: 'tool:image-studio',
+  order: 120,
+  text: 'When a user message begins with /image, call image_studio_generate …',
 })
 ```
+
+用户把 `/image ...` 当普通消息发送：输入框正常清空，会话正常落盘，模型调用工具，工具返回 Markdown 图片；之后可以继续聊天，不会再触发命令卡或占住输入框。
 
 语法：
 
@@ -235,19 +241,19 @@ ctx.inject(['commands'], (commandsCtx) => {
 - 质量仍用 `--quality`（避免把提示词里的 “high quality” 误吞）。
 - GPT Image 没有 2K/4K 档：`gpt 2k 16:9` 会映射为 `1536x1024`，`gpt 2k 9:16` → `1024x1536`，方形 → `1024x1024`；其他 OpenAI 尺寸仍可直接写像素。
 - 未写 `--provider` 时用 `config.json` 的 `defaultProvider`；点击面板页签会更新它。
-- **同一对话的上下文**：第一次 `/image` 是文生图；之后同一 session 再发 `/image`，会自动把上一张图读成 data URL 作为参考图（图生图）。`--new` 强制重新文生图。
-- **新对话首条 `/image`**：命令服务在真正的用户消息提交前执行，容易停留在空白首屏；handler 在没有 user/assistant 消息且 `session.seq <= 20` 时补一条 `user/message`（内容为 `/image …`），让会话立即有用户气泡，后续命令结果卡片才有宿主。已有对话不重复补。
+- **同一对话的上下文**：第一次调用是文生图；之后同一 session 再次调用，会自动把上一张图读成 data URL 作为参考图（图生图）。`--new` / `fresh:true` 强制重新文生图。
 - 会话上下文只存在 Host 内存（按 session id，最多 200 个会话），不写盘；DSH 重启后第一条会重新文生图。
 - 图片被删除或超过 12MB 时，后续修改会明确报错，提示用 `--new` 重新生成。
 - 结果：
   ```text
   已生成图片 · Grok Image · grok-imagine-image-2.0 · 2K · 16:9 · medium · 3.2s
-  图片地址：/image-studio/files/img-….png
+
+  ![生图结果](/image-studio/files/img-….png)
+
   本地文件：C:\…\.dsh\image-studio\outputs\img-….png
   ```
-- 客户端注册 `conversation.chat.commandview` key=`image`，解析纯图片地址并**内联渲染**图片卡片；不再输出 Markdown 图片链接，避免误跳工作台。
-- 命令卡片底部提示「继续 /image 修改上一张；/image --new 重新生成」。
-- 命令名冲突时捕获并警告，面板不受影响。
+- 工具输出 `render` 返回 Markdown 文本；客户端注册 `tool.call.toolview` key=`image_studio_generate`，从工具结果中解析图片 URL 并渲染大图，不依赖通用工具卡片对 Markdown 图片的处理。旧会话里的历史 commandview 卡片仍保留。
+- 系统提示片段确保模型把 `/image` 当工具请求，而不是普通文本回复；工具描述同时保留这条规则。
 
 ## 6. Key 与配置存储
 
@@ -319,7 +325,7 @@ Key 读取优先级（按 provider）：
 |---|---|
 | `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、文生图/图生图请求体、参考图校验、URL 拼接 |
 | `lib/index.js` | Host：配置/Key、路由、生成、JSON/multipart 传输、错误映射、`/image` |
-| `lib/client.js` | Client：服务商页签、1–5 张参考图上传/缩略图/移除、面板、配置弹窗、命令结果视图、主题 CSS |
+| `lib/client.js` | Client：服务商页签、1–5 张参考图上传/缩略图/移除、面板、配置弹窗、`image_studio_generate` 工具结果视图、旧命令结果视图、主题 CSS |
 | `package.json` / `cordis.patch.yml` | DSH bundle + client 声明 |
 | `icon.svg` | 图标 |
 | `README.md` / `docs/design.md` | 使用与设计 |
@@ -343,10 +349,10 @@ Profile（安装自动产生）：
   - Grok body：`{model,prompt,n:1,response_format:"url",aspect_ratio,resolution,quality}`；
   - 兼容 body：`{model,prompt,n:1,size}`，`auto` 时省略 size；
   - 清除 OpenAI Key 不影响 Agnes/Grok；缺 Key 返回 409 且 `error.provider` 正确；
-  - `/image --provider grok …` 走 Grok Key 和参数；
-  - 简写 `/image gpt 2k 16:9 …` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 简写均通过；
-  - 同一 session：第一条 `/image` 文生图；第二条自动带上一张 `extra_body.image`，文案显示「基于参考图」；`--new` 后不再带参考图；
-  - 新会话首条 `/image`：补一条 `user/message`；同一会话第二条不再补（fake session 单测通过）；
+  - `image_studio_generate` 工具注册，`request` 原样接收 `/image …` 并解析；
+  - `/image --provider grok …` 走 Grok Key 和参数；简写 `gpt 2k 16:9` 映射为 OpenAI `1536x1024`；`grok 2k 9:16`、`agnes 1k 1:1`、无 provider 均通过；
+  - 同一 session：第一次工具调用文生图；第二次自动带上一张 `extra_body.image`，Markdown 显示「基于 1 张参考图」；`--new` 后不再带参考图；
+  - 工具 `output.render` 返回 Markdown 图片；客户端 `tool.call.toolview` 注册并能从结果文本解析 URL；参考图 1–5 张与图生图接口均通过；
   - 图生图：Agnes `extra_body.image`、OpenAI/兼容 `multipart /v1/images/edits`、Grok JSON `/v1/images/edits` `images[]` 均通过；DALL·E 3 参考图 422；非法参考图 422；history `referenceCount` 正确；
   - 历史 8+ 条、文件路由、参数传递、路径穿越 404、未知 provider 422。
 - **隔离 profile + headless 浏览器**：
@@ -361,12 +367,12 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.4.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.5.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
 - 本机没有真实 Agnes/OpenAI/xAI Key，未发起真实计费请求；OpenAI/Grok 的 body 按官方/公开文档实现，真实账号首次调用请留意上游参数差异。
-- 有模型会话中的 `/image` 行内图：命令处理器、mock 请求和 commandview 注册已验证；最终 chat 行内图建议在正常会话里目测一次。
+- 有模型会话中的 `/image` 行内图：工具注册、参数解析和 Markdown 输出已用 mock 验证；真实模型是否稳定调用该工具、以及工具结果卡片里的图片渲染，建议在正常会话里目测一次。
 - 参考图真实上游未用真实计费 Key 验证：OpenAI multipart / Grok JSON edits 按官方接口实现，首次使用请留意上游参数/字段差异。
 
 ## 11. 边界情况
@@ -390,7 +396,7 @@ Profile（安装自动产生）：
 | 兼容中转不支持 edits | 上游 4xx 原样映射，提示检查编辑接口路径/中转能力 |
 | 参考图持久化 | 只在浏览器内存中参与当前请求，不写 history/outputs/配置文件 |
 | 路径穿越 | 404 |
-| 命令名冲突 | 捕获警告，面板照常 |
+| 模型未调用工具 | 系统提示片段 + 工具描述双重引导；若模型仍只回文本，可在系统提示中进一步约束 |
 
 ## 12. 参考
 

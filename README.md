@@ -1,8 +1,8 @@
 # dsh-image-studio · 生图工作台
 
-DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 斜杠命令，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
+DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.4.1** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.5.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -12,7 +12,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**下载原图**、复制路径、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格。
 - **图生图（最多 5 张参考图）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
-- **`/image` 命令**：命令结果留在当前对话里，不跳工作台；同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。
+- **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；图片以工具结果返回当前对话，输入框正常清空，可继续聊天。同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
 - **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示。
 
@@ -52,7 +52,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 ## 更新
 
-当前版本 `v0.4.1`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.4.1`，可以用它确认是否生效。
+当前版本 `v0.5.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.5.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -62,7 +62,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.4.1
+git checkout v0.5.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -112,7 +112,7 @@ $DSH_HOME/image-studio/
 /image --provider openai --size 1024x1024 --quality high 一只戴宇航头盔的橘猫
 ```
 
-命令结果会作为图片卡片留在当前对话里，不会跳到工作台；需要下载原图、看历史或换更多参数时再点侧边栏「生图工作台」。新对话首条 `/image` 也可以直接用：命令会先补一条用户消息，避免会话停在空白首屏。
+`/image` 不是 DSH 斜杠命令，而是消息里的调用语法；发送后由模型调用 `image_studio_generate` 工具。工具返回的图片会留在当前对话里，不会跳到工作台；输入框会像普通消息一样清空，之后可以继续聊天。需要下载原图、看历史或换更多参数时再点侧边栏「生图工作台」。
 
 提示：GPT Image 没有 2K/4K 档，`gpt 2k 16:9` 会映射为 `1536x1024`（竖图为 `1024x1536`，方形为 `1024x1024`）；Grok/Agnes 保留原生 2K 档。
 
@@ -120,7 +120,7 @@ $DSH_HOME/image-studio/
 
 `--provider` 支持 `agnes`、`openai`（别名 `gpt`）、`grok`、`openai-compatible`（别名 `compatible`/`custom`）。
 
-`/image` 命令支持对话内连续修改：第一条生成，第二条起自动把上一张作为参考图；`/image --new <提示词>` 强制重新文生图。
+`/image` 工具支持对话内连续修改：第一条生成，第二条起自动把上一张作为参考图；`/image --new <提示词>` 强制重新文生图。
 
 ## 数据位置
 
@@ -169,7 +169,7 @@ Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境
 ## 开发与测试
 
 ```powershell
-# 四服务商宿主冒烟（mock 上游）：Key 隔离、请求体、/image、文件路由
+# 四服务商宿主冒烟（mock 上游）：Key 隔离、请求体、image_studio_generate、文件路由
 $env:DSH_HOME='D:\deepseek\_smoke-home'
 node scripts/smoke-host.mjs
 ```
