@@ -8,7 +8,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 - **四个服务商，四个独立 Key**：互不回退、互不覆盖；Key 只保存在本机插件目录，不写入 dsh 模型凭据或其他插件配置。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
-- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界）**、结果预览、**下载原图**、复制路径、最近 80 张历史。
+- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**下载原图**、复制路径、最近 80 张历史。
 - **图生图**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，点选或拖入；Agnes 走 `extra_body.image`，OpenAI / 兼容走 `multipart /v1/images/edits`，Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
 - **`/image` 命令**：`/image --provider openai --size 1024x1024 --quality high <提示词>`，直接在对话命令面出图。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
@@ -16,7 +16,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 ![生成中的矩阵点动画](docs/loading.png)
 
-*生成中：矩阵点铺满整块画布，中心向外扩散波动，遮罩扩展到画布边界；左右卡片等高，下方「最近生成」在同一屏内可见。*
+*生成中：矩阵点铺满整块画布，中心向外扩散波动，遮罩扩展到画布边界与四角；左右卡片等高，下方「最近生成」在同一屏内可见。*
 
 ## 服务商
 

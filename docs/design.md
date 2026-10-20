@@ -188,7 +188,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（添加/更换/移除，PNG/JPEG/WebP，可拖入，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
-- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界；`prefers-reduced-motion` 时静止）。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
+- 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止）。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
 - 底部：无独立区块，历史在右卡底部。
 - 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；清除 Key 只清当前服务商。
 - 主题：`--dsw-alias-bg-base/layer-1/layer-2`、`--dsw-alias-border-l1`、`--dsw-alias-brand-primary`、`--dsw-alias-state-*`、`--dsh-frame-top-clearance`；CSS 热更新时替换 `<style>` 节点，避免旧样式残留。
@@ -351,7 +351,7 @@ Profile（安装自动产生）：
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；
   - mock 请求体确认为标准 OpenAI Images body；
   - 参考图上传：文件选择/拖入后出现缩略图与尺寸，Agnes 请求 `extra_body.image` 长度为 1，结果 meta 出现「参考图 1」；
-  - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界，无 spinner；
+  - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
 - **桌面窗口**：一级侧边栏「生图工作台」、多服务商页签、参考图区域、未配置警告、配置入口均正常显示。
 
