@@ -369,6 +369,40 @@ const customEdit = requests.findLast((item) => item.provider === 'custom')
 assert(customEdit.path.endsWith('/v1/images/edits'), 'custom uses images/edits')
 assert(/multipart\/form-data/i.test(customEdit.contentType), 'custom sends multipart/form-data')
 
+// Multiple reference images: up to five, provider-specific carriers.
+const twoReferences = [reference, reference]
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'agnes', prompt: 'combine both references', size: '2K', ratio: '1:1', referenceImages: twoReferences },
+})
+assert(result.status === 200 && result.json.value.referenceCount === 2, 'agnes accepts two references')
+const agnesMulti = requests.findLast((item) => item.provider === 'agnes' && item.path.includes('/generations'))
+assert(agnesMulti.body.extra_body.image.length === 2, 'agnes sends both reference images')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'combine both references', model: 'gpt-image-1.5', size: '1024x1024', referenceImages: twoReferences },
+})
+assert(result.status === 200 && result.json.value.referenceCount === 2, 'openai accepts two references')
+const openaiMulti = requests.findLast((item) => item.provider === 'openai')
+assert((openaiMulti.raw.match(/name="image"/g) || []).length === 2, 'openai multipart repeats the image field')
+assert(openaiMulti.raw.includes('filename="reference-2.png"'), 'openai multipart names the second reference')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'grok', prompt: 'combine both references', size: '2K', ratio: '16:9', referenceImages: twoReferences },
+})
+assert(result.status === 200 && result.json.value.referenceCount === 2, 'grok accepts two references')
+const grokMulti = requests.findLast((item) => item.provider === 'grok')
+assert(grokMulti.body.images.length === 2, 'grok sends both images[] entries')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'agnes', prompt: 'x', referenceImages: Array.from({ length: 6 }, () => reference) },
+})
+assert(result.status === 422 && /最多 5 张/.test(result.json.error.message), 'more than five references is rejected')
+
+
 result = await call('/image-studio/generate', {
   method: 'POST',
   body: { provider: 'openai', prompt: 'x', model: 'dall-e-3', referenceImages: [reference] },

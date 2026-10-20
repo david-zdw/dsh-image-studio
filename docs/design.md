@@ -54,7 +54,7 @@ Content-Type: application/json
 {"model":"agnes-image-2.5-flash","prompt":"…","size":"2K","ratio":"16:9","return_base64":true}
 ```
 
-参考图时改为：
+参考图时改为（可以传 1–5 张，`image` 为数组）：
 
 ```json
 {"model":"…","prompt":"…","size":"2K","ratio":"16:9",
@@ -79,7 +79,7 @@ Authorization: Bearer <openai key>
 - 命令里的友好档位会映射到像素：`2k`/`4k` + 横图 → `1536x1024`，竖图 → `1024x1536`，方形 → `1024x1024`；也可直接写像素。
 - DALL·E 3 尺寸：`1024x1024`、`1792x1024`、`1024x1792`；质量 `standard/hd`。
 - 面板在切换模型时自动切换尺寸/质量选项；`quality=auto` 时不发送，使用上游默认。
-- 图生图：`POST /v1/images/edits`，`multipart/form-data`，字段 `model / prompt / n / size / quality` + 一个 `image` 文件；DALL·E 3 不支持编辑，会返回明确错误。
+- 图生图：`POST /v1/images/edits`，`multipart/form-data`，字段 `model / prompt / n / size / quality` + 1–5 个 `image` 文件（重复 `image` 字段）；DALL·E 3 不支持编辑，会返回明确错误。
 - 编辑路径由生成路径把 `generations` 替换为 `edits`，默认 `/v1/images/edits`。
 
 ### 2.3 Grok Image（xAI Imagine）
@@ -97,7 +97,7 @@ Authorization: Bearer <xai key>
 - 模型：`grok-imagine-image-2.0`（默认）/ `grok-imagine-image`。
 - `resolution` 使用 `1K` / `2K`；`aspect_ratio` 支持 `1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9/5:2`。
 - 响应通常为 `data[0].url`，Host 下载后落盘。
-- 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…"]`，比例/分辨率/质量沿用同一套参数；单张参考图也用一元素数组。
+- 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…", …]`，比例/分辨率/质量沿用同一套参数；面板最多传 5 张，单张也用一元素数组。
 - xAI 的旧 `grok-2-image-1212` 参数不同，未列入默认；如要接旧模型，需要另加 branch 或自建兼容接口。
 
 > 参考：xAI Imagine 文档（`docs.x.ai/developers/model-capabilities/imagine`）与 Grok Imagine Image 2.0 的 `aspect_ratio` / `resolution` / `quality` 说明。若 xAI 调整参数，改 `lib/providers.js` 的 `buildRequestBody` 即可，UI 配置可继续复用。
@@ -184,10 +184,10 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.3.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.4.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
-- 左列：提示词（4000 字上限）、**参考图（添加/更换/移除，PNG/JPEG/WebP，可拖入，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
+- 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
 - 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**下载原图**（`?download=1` 附件）、复制路径；参考图生成会显示「参考图 N」标签。静止/出图状态显示静态矩阵点，生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止），不再使用棋盘格。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
 - 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；Agnes 附带「获取 Agnes Key」直达 `https://platform.agnes-ai.cn/`（另附国际站），清除 Key 只清当前服务商。
 - 底部：无独立区块，历史在右卡底部。
@@ -318,7 +318,7 @@ Key 读取优先级（按 provider）：
 |---|---|
 | `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、文生图/图生图请求体、参考图校验、URL 拼接 |
 | `lib/index.js` | Host：配置/Key、路由、生成、JSON/multipart 传输、错误映射、`/image` |
-| `lib/client.js` | Client：服务商页签、参考图上传/预览、面板、配置弹窗、命令结果视图、主题 CSS |
+| `lib/client.js` | Client：服务商页签、1–5 张参考图上传/缩略图/移除、面板、配置弹窗、命令结果视图、主题 CSS |
 | `package.json` / `cordis.patch.yml` | DSH bundle + client 声明 |
 | `icon.svg` | 图标 |
 | `README.md` / `docs/design.md` | 使用与设计 |
@@ -354,11 +354,12 @@ Profile（安装自动产生）：
   - 用 mock 上游生成成功，结果 meta 显示 `OpenAI GPT Image / gpt-image-1.5 / 1024x1024 / high`；
   - 配置弹窗有四个服务商页签、独立 Key/Base URL/接口路径/默认模型/尺寸/质量；Agnes 页有「获取 Agnes Key」；
   - mock 请求体确认为标准 OpenAI Images body；
-  - 参考图上传：文件选择/拖入后出现缩略图与尺寸，Agnes 请求 `extra_body.image` 长度为 1，结果 meta 出现「参考图 1」；
+  - 参考图上传：一次选择两张后出现两个缩略图，可逐张移除；Agnes 请求 `extra_body.image` 长度为 2，结果 meta 出现「参考图 2」；
+  - 超过 5 张被拒绝；DALL·E 3 下参考图入口禁用/生成按钮禁用；
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.3.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.4.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
@@ -382,6 +383,7 @@ Profile（安装自动产生）：
 | Key 含空白/过短 | setup 422，不写盘 |
 | 清某一家 Key | 只删 `keys.<id>`，其他 provider 不受影响 |
 | 参考图格式/大小不合法 | 422 `bad-request`，文案指出第几张、只接受 PNG/JPEG/WebP、上限 12MB |
+| 参考图超过 5 张 | 422 `bad-request`；面板最多保留 5 张，超出部分不添加 |
 | DALL·E 3 + 参考图 | 422 `bad-request`：DALL·E 3 不支持参考图，请切到 gpt-image 系列 |
 | 兼容中转不支持 edits | 上游 4xx 原样映射，提示检查编辑接口路径/中转能力 |
 | 参考图持久化 | 只在浏览器内存中参与当前请求，不写 history/outputs/配置文件 |
