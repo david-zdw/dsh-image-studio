@@ -68,6 +68,9 @@ const tools = []
 let route
 const ctx = {
   webServer: {
+    getOrigin() {
+      return origin
+    },
     register(candidate) {
       route = candidate
       return () => {}
@@ -245,7 +248,7 @@ assert(JSON.stringify(grokRequest.body) === JSON.stringify({
   n: 1,
   response_format: 'url',
   aspect_ratio: '16:9',
-  resolution: '1K',
+  resolution: '1k',
   quality: 'medium',
 }), 'grok body uses aspect_ratio + resolution')
 
@@ -279,7 +282,7 @@ assert(shortGptRequest.body.size === '1536x1024', 'tool gpt 2k 16:9 maps to a 2K
 const shortGrok = await executeImageTool({}, { request: '/image grok 2k 9:16 a fox' })
 assert(shortGrok.markdown.includes('Grok Image'), 'tool shorthand grok reports the provider')
 const shortGrokRequest = requests.findLast((item) => item.provider === 'grok')
-assert(shortGrokRequest.body.resolution === '2K', 'tool grok 2k keeps the native 2K tier')
+assert(shortGrokRequest.body.resolution === '2k', 'tool grok 2k keeps the native 2K tier')
 assert(shortGrokRequest.body.aspect_ratio === '9:16', 'tool grok 9:16 keeps the ratio')
 
 const shortAgnes = await executeImageTool({}, { request: '/image agnes 1k 1:1 a cat' })
@@ -293,7 +296,7 @@ assert(shortDefault.markdown.includes('已生成图片'), 'tool shorthand withou
 const explicitGrok = await executeImageTool({}, { request: '/image --provider grok --size 2K --ratio 1:1 --quality low a whale' })
 assert(explicitGrok.markdown.includes('Grok Image'), 'tool succeeds with --provider')
 assert(requests.findLast((item) => item.provider === 'grok').body.prompt === 'a whale', 'tool parses the prompt')
-assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2K', 'tool parses --size')
+assert(requests.findLast((item) => item.provider === 'grok').body.resolution === '2k', 'tool parses --size')
 assert(requests.findLast((item) => item.provider === 'grok').body.aspect_ratio === '1:1', 'tool parses --ratio')
 
 // Same-conversation tool calls: first is text-to-image, next auto-edits, fresh resets.
@@ -345,7 +348,7 @@ assert(result.status === 200 && result.json.ok === true, 'grok img2img succeeds'
 const grokEdit = requests.findLast((item) => item.provider === 'grok')
 assert(grokEdit.path.endsWith('/v1/images/edits'), 'grok uses images/edits')
 assert(Array.isArray(grokEdit.body.images) && grokEdit.body.images[0] === reference, 'grok sends images[]')
-assert(grokEdit.body.aspect_ratio === '16:9' && grokEdit.body.resolution === '2K', 'grok edit keeps ratio/resolution')
+assert(grokEdit.body.aspect_ratio === '16:9' && grokEdit.body.resolution === '2k', 'grok edit keeps ratio/resolution')
 
 result = await call('/image-studio/generate', {
   method: 'POST',
@@ -407,13 +410,17 @@ assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'histor
 
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]
-const historyFile = await fetch(`${origin}${historyItem.url}`)
+assert(/^https?:[/][/]/.test(historyItem.url), 'history image URL is absolute')
+const historyUrl = new URL(historyItem.url, origin)
+const historyDownloadUrl = new URL(historyUrl)
+historyDownloadUrl.searchParams.set('download', '1')
+const historyFile = await fetch(historyUrl)
 assert(historyFile.status === 200 && historyFile.headers.get('content-type') === 'image/png', 'file route serves PNG')
-const historyDownload = await fetch(`${origin}${historyItem.url}?download=1`)
+const historyDownload = await fetch(historyDownloadUrl)
 assert(historyDownload.status === 200 && /attachment/.test(historyDownload.headers.get('content-disposition') || ''), 'download route sends an attachment')
 result = await call(`/image-studio/history/${encodeURIComponent(historyItem.id)}`, { method: 'DELETE' })
 assert(result.status === 200 && result.json.value.deleted === true, 'delete removes the history item')
-const deletedFile = await fetch(`${origin}${historyItem.url}`)
+const deletedFile = await fetch(historyUrl)
 assert(deletedFile.status === 404, 'delete removes the image file')
 result = await call('/image-studio/history')
 assert(!result.json.value.items.some((item) => item.id === historyItem.id), 'deleted item is gone from history')
@@ -441,6 +448,12 @@ result = await call('/image-studio/generate', {
 assert(result.status === 200, 'custom GPT 4K generation succeeds')
 assert(requests.findLast((item) => item.provider === 'openai').body.size === '3840x2160', '4K + 16:9 maps to 3840x2160')
 assert(result.json.value.size === '3840x2160', 'result records the computed pixel size')
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', model: 'gpt-image-2.5-sunburst', prompt: 'a wide cover', size: '1K', ratio: '16:9' },
+})
+assert(result.status === 200, 'custom GPT 1K generation succeeds')
+assert(requests.findLast((item) => item.provider === 'openai').body.size === '1024x576', '1K + 16:9 maps to 1024x576')
 
 
 // Path traversal refusal.
