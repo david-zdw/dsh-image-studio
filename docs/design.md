@@ -93,12 +93,12 @@ Authorization: Bearer <xai key>
 
 ```json
 {"model":"grok-imagine-image-2.0","prompt":"…","n":1,
- "aspect_ratio":"16:9","resolution":"1k","quality":"medium","response_format":"url"}
+ "aspect_ratio":"16:9","resolution":"1k","quality":"medium","response_format":"b64_json"}
 ```
 
 - 模型：`grok-imagine-image-2.0`（默认）/ `grok-imagine-image`。
 - `resolution` 使用小写 `1k` / `2k`（xAI 字段是大小写敏感的）；`aspect_ratio` 支持 `1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9/5:2`。
-- 响应通常为 `data[0].url`，Host 下载后落盘；下载 xAI 同根域子域（如 `imgen.x.ai`）时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段。
+- 优先请求 `response_format:"b64_json"`，直接解码落盘，省掉 URL 下载；若上游仍返回 URL，则下载 xAI 同根域子域（如 `imgen.x.ai`）时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段。
 - 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…", …]`，比例/分辨率/质量沿用同一套参数；面板最多传 5 张，单张也用一元素数组。
 - xAI 的旧 `grok-2-image-1212` 参数不同，未列入默认；如要接旧模型，需要另加 branch 或自建兼容接口。
 
@@ -186,7 +186,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.8.2`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.8.3`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -317,6 +317,8 @@ Key 读取优先级（按 provider）：
 
 所有图片 URL 由 `webServer.getOrigin()` 拼成绝对地址（如 `http://127.0.0.1:6354/image-studio/files/...`），避免 6355/6356 页面拿到相对路径后 401。
 
+生图请求默认超时 `300000ms`；生成响应返回后，图片 URL 下载单独给 `120000ms`，避免生成耗时占满总超时后下载失败。面板每秒显示已等待秒数。
+
 `待补充`：
 
 - Agnes 以后新增的模型/尺寸档；
@@ -354,7 +356,7 @@ Profile（安装自动产生）：
   - 历史删除：`DELETE /history/<id>` 同时移除记录与文件，重复删除 404；`filePath` 随历史返回；图片 URL 是 `webServer.getOrigin()` 拼出的绝对地址；
   - Agnes body 逐字节等于画布契约；
   - OpenAI body：`{model,prompt,n:1,size,quality}`；
-  - Grok body：`{model,prompt,n:1,response_format:"url",aspect_ratio,resolution:小写 1k/2k,quality}`；xAI 子域下载带 Key，401/403 无 Key 重试；
+  - Grok body：`{model,prompt,n:1,response_format:"b64_json",aspect_ratio,resolution:小写 1k/2k,quality}`；xAI 子域下载带 Key，401/403 无 Key 重试；
   - 兼容 body：`{model,prompt,n:1,size}`，`auto` 时省略 size；
   - 清除 OpenAI Key 不影响 Agnes/Grok；缺 Key 返回 409 且 `error.provider` 正确；
   - `image_studio_generate` 工具注册，`request` 原样接收 `/image …` 并解析；
@@ -382,7 +384,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.8.2`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.8.3`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 

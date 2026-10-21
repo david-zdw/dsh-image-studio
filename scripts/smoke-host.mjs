@@ -239,14 +239,14 @@ result = await call('/image-studio/generate', {
   method: 'POST',
   body: { provider: 'grok', prompt: 'a fox', model: 'grok-imagine-image-2.0', size: '1K', ratio: '16:9', quality: 'medium' },
 })
-assert(result.status === 200 && result.json.ok === true, 'grok generate (URL result downloaded)')
+assert(result.status === 200 && result.json.ok === true, 'grok generate (b64 result decodes)')
 const grokRequest = requests.findLast((item) => item.provider === 'grok')
 assert(grokRequest.auth === 'Bearer xai-grok-1234567890', 'grok uses its own key')
 assert(JSON.stringify(grokRequest.body) === JSON.stringify({
   model: 'grok-imagine-image-2.0',
   prompt: 'a fox',
   n: 1,
-  response_format: 'url',
+  response_format: 'b64_json',
   aspect_ratio: '16:9',
   resolution: '1k',
   quality: 'medium',
