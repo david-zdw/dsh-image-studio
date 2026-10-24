@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.4 — 2026-10-24
+
+- 彻底移除旧的 `/image` slash command 注册和 `ensureCommandUserMessage`；该路径会 `session.append('user/message', …)` 但不写 `message.id`，触发 DSH 的 `assertMessageEventShape` 校验失败。
+- `/image` 现在只走 `image_studio_generate` 工具，不写 session 消息，不会再生成缺少 `message.id` 的会话事件。
+- 旧版本已经产生的 corrupt 会话仍需一次性补 id/备份；本版不会擅自改 DSH 的 session 存储。
+- 顶栏版本号更新为 `v0.8.4`。
+
 ## v0.8.3 — 2026-10-21
 
 - 生图默认超时从 180 秒提高到 300 秒；图片 URL 回传下载单独给 120 秒预算，不再共用生成超时。
