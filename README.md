@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.8.4** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.8.5** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -16,7 +16,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **Grok 取图**：`resolution` 使用小写 `1k/2k`；优先请求 `b64_json`，省掉“生成成功后再下载 URL”的第二次等待；下载 xAI 子域图片时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段，方便定位。
 - **等待与超时**：默认生图超时从 180 秒提高到 **300 秒**；图片 URL 回传单独给 **120 秒**预算，不会因为生成耗时占满总超时而在最后下载失败；面板显示已等待秒数。
 - **图生图（最多 5 张参考图）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
-- **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；不注册 slash command，也不写 session 消息（避免缺少 `message.id` 的旧问题）。模型会把图片 Markdown 带回聊天内联显示，工具卡还提供「打开本地文件 / 打开原图」。输入框正常清空，可继续聊天；同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。
+- **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；不注册 slash command，也不写 session 消息（避免缺少 `message.id` 的旧问题）。模型会把图片 Markdown 带回聊天内联显示，工具卡还提供「打开本地文件 / 打开原图」。输入框正常清空，可继续聊天；同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。工具报错时模型不再自动重试（尤其是上游 HTTP 524 网关超时），先报告并询问是否重新生成，避免一次 30 秒的图拖成 5 分钟。
 - **模型嗅探**：配置 Key 后在「生图设置」点「嗅探模型」，用已保存的 Key 拉取服务商 `/v1/models`；结果可多选，只有勾选的模型保存后会进入主面板下拉，图像模型带「图像」标记。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
 - **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示。
@@ -57,7 +57,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 ## 更新
 
-当前版本 `v0.8.4`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.8.4`，可以用它确认是否生效。
+当前版本 `v0.8.5`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.8.5`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -67,7 +67,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.8.4
+git checkout v0.8.5
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。

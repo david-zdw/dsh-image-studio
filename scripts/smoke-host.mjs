@@ -46,12 +46,16 @@ const upstream = http.createServer(async (req, res) => {
     if (!/multipart\/form-data/i.test(contentType)) {
       try { body = JSON.parse(raw) } catch { body = null }
     }
+    if (body && body.prompt === 'force-524') {
+      res.writeHead(524, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: { message: 'proxy read timeout' } }))
+      return
+    }
     const provider = match[1]
     requests.push({ provider, auth: req.headers.authorization, body, raw, contentType, path: req.url })
     if (provider === 'grok' && match[2] === 'generations') {
-      const host = req.headers.host
       res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ data: [{ url: `http://${host}/download.png` }] }))
+      res.end(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
       return
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -467,6 +471,14 @@ assert(twoK.quality === 'xhigh', 'gpt-image-2.5 accepts xhigh quality')
 // Path traversal refusal.
 result = await call('/image-studio/files/../credentials.json')
 assert(result.status === 404, 'path traversal is refused')
+
+// Upstream gateway timeout is explicit about not auto-retrying.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'force-524', model: 'gpt-image-1.5' },
+})
+assert(result.status === 504, 'HTTP 524 maps to timeout')
+assert(/不要自动重试/.test(result.json.error.message), 'HTTP 524 tells the model not to auto-retry')
 
 // Unknown provider is a clear error.
 result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'nope', prompt: 'x' } })
