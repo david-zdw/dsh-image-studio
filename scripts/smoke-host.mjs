@@ -46,6 +46,12 @@ const upstream = http.createServer(async (req, res) => {
     if (!/multipart\/form-data/i.test(contentType)) {
       try { body = JSON.parse(raw) } catch { body = null }
     }
+    if (body && body.prompt === 'force-open') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
+      setTimeout(() => res.end(), 3000)
+      return
+    }
     if (body && body.prompt === 'force-524') {
       res.writeHead(524, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: { message: 'proxy read timeout' } }))
@@ -479,6 +485,15 @@ result = await call('/image-studio/generate', {
 })
 assert(result.status === 504, 'HTTP 524 maps to timeout')
 assert(/不要自动重试/.test(result.json.error.message), 'HTTP 524 tells the model not to auto-retry')
+
+// A complete JSON body followed by a held-open socket must not block the response.
+const openStartedAt = Date.now()
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'force-open', model: 'gpt-image-1.5' },
+})
+assert(result.status === 200, 'held-open socket still returns the image')
+assert(Date.now() - openStartedAt < 2000, 'early JSON reader returns without waiting for EOF')
 
 // Unknown provider is a clear error.
 result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'nope', prompt: 'x' } })
