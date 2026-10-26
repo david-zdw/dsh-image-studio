@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.7 — 2026-10-26
+
+- 最新一次 `/image`：第一次 282 秒后上游 `Invalid EOF state`，模型重试 56 秒成功，总等待约 5 分半。首次失败不是 JSON 等待问题，而是连接在响应体中途被中断。
+- 移除 v0.8.6 显式加的 `Connection: close` / `Accept-Encoding: identity`：部分中转因此提前断流；保留 `readJsonBodyEarly()` 解决“JSON 完整但连接不关”的情况。
+- 工具路径所有 `StudioError` 统一追加“不要自动重试；请先让用户确认”，包括 `terminated` 这类网络错误，避免模型 282 秒失败后静默再跑 56 秒。
+- 工具卡保留 `请求 X / 回传 Y` 分段耗时；最新成功样本为请求 56.0s / 回传 0.0s。
+- 顶栏版本号更新为 `v0.8.7`。
+
 ## v0.8.6 — 2026-10-26
 
 - 定位到 `/image` 慢的第二个原因：上游 `one2api.top` 在约 25–42 秒返回响应头/完整 JSON，但有时 chunked 连接迟迟不关闭，`response.text()` 会一直等到 EOF（实测 295 秒仍未结束）。

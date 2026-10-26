@@ -1,7 +1,7 @@
 {
   "name": "dsh-image-studio",
   "displayName": "生图工作台",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "private": false,
   "description": "Sidebar image workbench for DeepSeek Harness: Agnes, OpenAI GPT Image, Grok Image and OpenAI-compatible endpoints, each with its own key, plus an /image message shorthand.",
   "icon": "icon.svg",
