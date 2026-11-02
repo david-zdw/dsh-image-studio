@@ -148,6 +148,8 @@ $DSH_HOME/image-studio/
 | `enabled` | `true` | 总开关 |
 | `defaultProvider` | `agnes` | `/image` 未写 `--provider` 时使用；点击面板服务商页签会自动更新 |
 | `providers.<id>.*` | 见下表 | 每个服务商的独立配置 |
+| `allowRemoteAccess` | `false` | 为 `true` 时允许经反向代理 / 其他入口访问工作台；判定交给 dsh 的 `connection` 服务（Host/Origin 围栏 + 浏览器登录态），不用自己列域名 |
+| `allowedHostnames` | `[]` | 拿不到 `connection` 服务时的兜底 Host 白名单；条目可带端口（`dsh.example.com:443`），端口会被忽略 |
 
 每个 `providers.<id>`：
 
@@ -170,6 +172,25 @@ Key 的环境变量兜底（文件 Key 优先）：
 | 兼容接口 | `DSH_IMAGE_STUDIO_OPENAI_COMPATIBLE_API_KEY` |
 
 Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境变量 > 无**；不会读取其他服务商的 Key，也不会读取 dsh 的模型凭据。
+
+### 反向代理与远程入口
+
+默认只服务回环连接（`127.0.0.1` / `::1`），请求带 `X-Forwarded-For` 一律拒绝。要让 `https://dsh.example.com` 这类入口也能用：
+
+```yaml
+- id: image-studio
+  name: dsh-image-studio
+  config:
+    allowRemoteAccess: true
+    # 可选：仅在 connection 服务不可用时作为兜底
+    allowedHostnames:
+      - dsh.example.com
+      - 203.0.113.7:3080
+```
+
+打开后每个请求交给 `connection.requestRejection()` 判定——和 dsh 其他路由同一套 Host/Origin 围栏和登录态检查，所以 `--trusted-host` 里的每个入口（域名、tailnet 名、裸 IP）都能用，未登录返回 401。
+
+图片地址按**当前请求的入口**生成（`https://dsh.example.com/image-studio/files/...`）；没有请求上下文时（例如 `/image` 工具结果）用 dsh 的对外地址（`--public-url`），再拿不到就退回相对路径，不会出现 `http://0.0.0.0:3080/...` 这种浏览器加载不了的地址。
 
 ## 开发与测试
 
