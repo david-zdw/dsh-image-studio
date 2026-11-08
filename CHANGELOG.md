@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.0 — 2026-11-08
+
+- 修复 `api.one2api.top` 报 `Connect Timeout Error (timeout: 10000ms)`：该域名有两个 A 记录，Node fetch/undici 在第一个地址超时后不会尝试第二个；插件现在在连接失败时用原生 HTTPS `autoSelectFamily` 重试其余地址。
+- 回退同时支持 JSON 请求和参考图 multipart；只在连接阶段失败时触发，不会重复发送已经到达上游的请求。
+- 保留 early JSON reader、请求/回传分段耗时和无静默重试。
+- 顶栏版本号更新为 `v0.9.0`。
+
 ## v0.8.9 — 2026-10-26
 
 - 修复 gpt-image-2.5 参考图/编辑报 `Requested resolution is below the current minimum pixel budget`：1K + 16:9 由 `1024x576`（589,824 px）改为 `1280x720`（921,600 px），1K + 9:16 改为 `720x1280`。
