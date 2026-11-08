@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.9.0** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.9.1** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -20,7 +20,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；不注册 slash command，也不写 session 消息（避免缺少 `message.id` 的旧问题）。模型会把图片 Markdown 带回聊天内联显示，工具卡还提供「打开本地文件 / 打开原图」。输入框正常清空，可继续聊天；同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。工具报错时模型不再自动重试（尤其是上游 HTTP 524 网关超时），先报告并询问是否重新生成，避免一次 30 秒的图拖成 5 分钟。
 - **模型嗅探**：配置 Key 后在「生图设置」点「嗅探模型」，用已保存的 Key 拉取服务商 `/v1/models`；结果可多选，只有勾选的模型保存后会进入主面板下拉，图像模型带「图像」标记。
 - **与 dsh 主题融合**：使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
-- **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示。
+- **明确失败**：未配置 / 401 / 402 / 429 / 超时 / 网络 / 无图片数据分别有可执行提示；上游 404 “Parameter error” 会被识别为中转渠道/参数问题，而不是本地接口路径错误；内容审核会单独提示。
 
 ![生成中的矩阵点动画](docs/loading.png)
 
@@ -58,7 +58,7 @@ dsh plugin --profile desktop remove dsh-image-studio
 
 ## 更新
 
-当前版本 `v0.9.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.9.0`，可以用它确认是否生效。
+当前版本 `v0.9.1`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.9.1`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -68,7 +68,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.9.0
+git checkout v0.9.1
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。

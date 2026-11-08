@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.1 — 2026-11-09
+
+- 修复 404 误报：上游中转返回 `404 Parameter error.Plase check your request parameters.` 时，不再显示“接口路径不存在”，改为 502 upstream，说明是中转渠道/模型临时不可用，并建议重试或更换 Base URL。
+- 内容审核单独识别：上游 400/422 带 `safety/moderation/sexual` 时显示“内容审核拒绝，请修改提示词”。
+- 实测截图中的提示词 `跳舞的美女，kpop，黑色连裤袜0D，灰色短裙，高跟鞋` 会被上游判定 `safety_violations=[sexual]`（HTTP 400）；即使 404 消失，也需要改得更中性才能出图。
+- `api.one2api.top` 的同一请求直连有时 200、有时 404/502，属于中转渠道波动；v0.9.0 的多 IP 连接回退保留。
+- 顶栏版本号更新为 `v0.9.1`。
+
 ## v0.9.0 — 2026-11-08
 
 - 修复 `api.one2api.top` 报 `Connect Timeout Error (timeout: 10000ms)`：该域名有两个 A 记录，Node fetch/undici 在第一个地址超时后不会尝试第二个；插件现在在连接失败时用原生 HTTPS `autoSelectFamily` 重试其余地址。

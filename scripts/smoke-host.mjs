@@ -52,6 +52,16 @@ const upstream = http.createServer(async (req, res) => {
       setTimeout(() => res.end(), 3000)
       return
     }
+    if (body && body.prompt === 'force-404-param') {
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: { message: 'Parameter error.Plase check your request parameters.' } }))
+      return
+    }
+    if (body && body.prompt === 'force-safety') {
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: { message: 'rejected by the safety system', safety_violations: ['sexual'] } }))
+      return
+    }
     if (body && body.prompt === 'force-524') {
       res.writeHead(524, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ error: { message: 'proxy read timeout' } }))
@@ -485,6 +495,20 @@ result = await call('/image-studio/generate', {
 })
 assert(result.status === 504, 'HTTP 524 maps to timeout')
 assert(/不要自动重试/.test(result.json.error.message), 'HTTP 524 tells the model not to auto-retry')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'force-404-param', model: 'gpt-image-1.5' },
+})
+assert(result.status === 502, 'upstream 404 parameter error is not a route error')
+assert(/中转/.test(result.json.error.message), 'upstream 404 parameter error explains relay channel')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'force-safety', model: 'gpt-image-1.5' },
+})
+assert(result.status === 422, 'safety rejection is a bad request')
+assert(/内容审核/.test(result.json.error.message), 'safety rejection names content moderation')
 
 // A complete JSON body followed by a held-open socket must not block the response.
 const openStartedAt = Date.now()
