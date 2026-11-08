@@ -463,7 +463,7 @@ result = await call('/image-studio/generate', {
   body: { provider: 'openai', model: 'gpt-image-2.5-sunburst', prompt: 'a wide cover', size: '1K', ratio: '16:9' },
 })
 assert(result.status === 200, 'custom GPT 1K generation succeeds')
-assert(requests.findLast((item) => item.provider === 'openai').body.size === '1024x576', '1K + 16:9 maps to 1024x576')
+assert(requests.findLast((item) => item.provider === 'openai').body.size === '1280x720', '1K + 16:9 maps to 1280x720 (min pixel budget)')
 result = await call('/image-studio/generate', {
   method: 'POST',
   body: { provider: 'openai', model: 'gpt-image-2.5-sunburst', prompt: 'a 2k cover', size: '2K', ratio: '16:9', quality: 'xhigh' },
