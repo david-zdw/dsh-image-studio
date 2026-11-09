@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.0 — 2026-11-09
+
+- 包名改为唯一 npm 名 `dsh-image-studio-workbench`，避免与 npm 上已有的 `dsh-image-studio` 冲突；`cordis.patch.yml` 行名和客户端模块 id 同步更新。
+- 增加 `engines.dsh: >=0.2.0 <0.3.0` 与 market 关键词，便于插件市场做兼容判断和搜索。
+- 已安装旧 link 的用户需要按 README 重装到新包名；配置、Key、历史记录不变。
+- 顶栏版本号更新为 `v0.11.0`。
+
 ## v0.10.0 — 2026-11-09
 
 - 标题栏新增「检查更新」按钮：读取 GitHub 最新 Release（失败回退 `main/package.json`），发现更高版本时显示「更新到 vX」。

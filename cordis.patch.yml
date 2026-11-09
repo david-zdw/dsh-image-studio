@@ -3,4 +3,4 @@
 # ./lib/client.js as the browser half.
 - insert:
     - id: image-studio
-      name: dsh-image-studio
+      name: dsh-image-studio-workbench

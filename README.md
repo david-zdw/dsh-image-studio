@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.10.0** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.11.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -54,12 +54,12 @@ dsh plugin --profile desktop add link:D:/path/to/dsh-image-studio
 安装后侧边栏出现「生图工作台」。如果当前窗口是在安装前启动的，重新加载窗口/重启 DSH 一次即可。卸载：
 
 ```powershell
-dsh plugin --profile desktop remove dsh-image-studio
+dsh plugin --profile desktop remove dsh-image-studio-workbench
 ```
 
 ## 更新
 
-当前版本 `v0.10.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.10.0`，可以用它确认是否生效。
+当前版本 `v0.11.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.11.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -69,17 +69,17 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.10.0
+git checkout v0.11.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
 
 ### 插件管理器安装
 
-在插件管理器里更新/重装 `dsh-image-studio`，目标仍指向同一个 clone 目录。也可以走 profile 的 pnpm：
+在插件管理器里更新/重装 `dsh-image-studio-workbench`，目标仍指向同一个 clone 目录。也可以走 profile 的 pnpm：
 
 ```powershell
-dsh plugin --profile desktop update dsh-image-studio
+dsh plugin --profile desktop update dsh-image-studio-workbench
 ```
 
 注意：`dsh plugin` 只是把参数转发给 pnpm。如果当初是 `link:` 安装，`pnpm update` 不会帮你拉取 git 更新，仍然要先 `git pull`。
