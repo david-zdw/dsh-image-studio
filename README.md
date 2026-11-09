@@ -94,6 +94,15 @@ $DSH_HOME/image-studio/
 
 更新/重装插件不会清空这个目录。不要为了更新去删除它。
 
+## 发布（GitHub-only）
+
+1. 修改 `package.json` 的 `version`；
+2. 提交并推送 `main`：`git push origin main`；
+3. 可选但推荐：打 tag 并创建 Release：`git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`，再 `gh release create vX.Y.Z`。
+
+插件内「检查更新」会比较 `main/package.json` 和最新 Release，取较高版本；市场更新跟随 GitHub 提交，不需要 npm。
+
+
 ## 使用
 
 1. 点击侧边栏「生图工作台」。
