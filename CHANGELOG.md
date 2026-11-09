@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.1 — 2026-11-09
+
+- 更新检查同时读取最新 Release 与 `main/package.json`，取两者较高的版本；只推 GitHub main、暂未发 Release 时也能在插件里检测到更新。
+- 市场条目改为跟踪 GitHub 仓库，不再固定 tarball，后续提交可直接由市场检测更新。
+- 顶栏版本号更新为 `v0.11.1`。
+
 ## v0.11.0 — 2026-11-09
 
 - 包名改为唯一 npm 名 `dsh-image-studio-workbench`，避免与 npm 上已有的 `dsh-image-studio` 冲突；`cordis.patch.yml` 行名和客户端模块 id 同步更新。
