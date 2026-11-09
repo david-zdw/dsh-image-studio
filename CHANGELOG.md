@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.10.0 — 2026-11-09
+
+- 标题栏新增「检查更新」按钮：读取 GitHub 最新 Release（失败回退 `main/package.json`），发现更高版本时显示「更新到 vX」。
+- 点击更新执行 `git pull --ff-only`；本地仓库有未提交改动时停止并提示，避免覆盖开发中的代码；更新后提示重启 DSH。
+- 非 Git 安装（npm/市场）不自动改动文件，显示「查看 vX」跳转 Release。
+- 新增 `GET /image-studio/update/check`、`POST /image-studio/update/apply`。
+- 顶栏版本号更新为 `v0.10.0`。
+
 ## v0.9.1 — 2026-11-09
 
 - 修复 404 误报：上游中转返回 `404 Parameter error.Plase check your request parameters.` 时，不再显示“接口路径不存在”，改为 502 upstream，说明是中转渠道/模型临时不可用，并建议重试或更换 Base URL。

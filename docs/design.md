@@ -186,7 +186,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.9.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.10.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -291,6 +291,8 @@ Key 读取优先级（按 provider）：
 | POST | `/image-studio/models` | `{provider}`；用已保存的 Key 请求该 provider 的 `GET /v1/models`，返回 `{provider, providerLabel, endpoint, models:[{id,imageLike}], fetchedAt}`，不回传 Key |
 | POST | `/image-studio/generate` | `{provider?, prompt, model?, size?, ratio?, quality?, referenceImages?}` |
 | GET | `/image-studio/history` | 最近 80 条（含 provider） |
+| GET | `/image-studio/update/check` | 读取 GitHub 最新 Release，返回 `{currentVersion, latestVersion, hasUpdate, canUpdate, releaseUrl}` |
+| POST | `/image-studio/update/apply` | 版本落后且仓库干净时执行 `git pull --ff-only`；返回更新后版本，提示重启 DSH |
 | DELETE | `/image-studio/history/<id>` | 删除一条历史记录及本地文件；id 必须匹配图片文件白名单 |
 | GET | `/image-studio/files/<id>` | 图片字节；`?download=1` 附件下载 |
 
@@ -320,6 +322,8 @@ Key 读取优先级（按 provider）：
 所有图片 URL 由 `webServer.getOrigin()` 拼成绝对地址（如 `http://127.0.0.1:6354/image-studio/files/...`），避免 6355/6356 页面拿到相对路径后 401。
 
 生成请求先用 fetch；若遇到 `Connect Timeout Error`（undici 默认 10 秒只尝试第一个 A 记录），自动改用原生 `https.request` + `autoSelectFamily: true` 重试其余地址，JSON 和 multipart 都支持。该回退只在连接阶段失败时触发，不会重复发送已经到达上游的生成请求。
+
+标题栏「检查更新」调用 `/update/check`：优先 GitHub Releases API，失败回退 `main/package.json`；仅当最新版本高于本地 `PACKAGE_VERSION` 时显示更新。`/update/apply` 先检查 `git status --porcelain`，有未提交改动直接拒绝，否则执行 `git pull --ff-only`，成功后提示重启 DSH；不是 Git 安装时只跳转 Release 页面。
 
 响应体由 `readJsonBodyEarly()` 逐块读取，一旦拼成完整 JSON 就立即返回，不等待上游关闭 chunked socket。不再显式设置 `Connection: close` / `Accept-Encoding: identity`（部分中转会因此 `Invalid EOF state`）；历史/工具卡/面板记录 `preMs`（配置/构造）、`headersMs`（响应头）、`bodyMs`（响应体）、`postMs`（请求合计）和 `downloadMs`（回传），用于区分上游慢还是下载慢。工具路径的所有错误都会追加“不要自动重试；请先让用户确认”，避免模型静默重跑。
 
@@ -390,7 +394,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.9.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.10.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
