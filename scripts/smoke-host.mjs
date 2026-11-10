@@ -431,6 +431,7 @@ assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'histor
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]
 assert(/^https?:[/][/]/.test(historyItem.url), 'history image URL is absolute')
+assert(historyItem.url.startsWith(origin), 'history image URL uses the request origin')
 const historyUrl = new URL(historyItem.url, origin)
 const historyDownloadUrl = new URL(historyUrl)
 historyDownloadUrl.searchParams.set('download', '1')

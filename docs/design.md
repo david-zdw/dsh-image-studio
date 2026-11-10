@@ -186,7 +186,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.12.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.13.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -296,7 +296,7 @@ Key 读取优先级（按 provider）：
 | DELETE | `/image-studio/history/<id>` | 删除一条历史记录及本地文件；id 必须匹配图片文件白名单 |
 | GET | `/image-studio/files/<id>` | 图片字节；`?download=1` 附件下载 |
 
-安全：loopback socket + Host 头 + Origin + 拒绝 `X-Forwarded-For`/`Forwarded`；文件 ID 白名单 + 解析后目录校验；body 上限 24MB；并发上限。
+安全：默认 loopback socket + Host 头 + Origin + 拒绝 `X-Forwarded-For`/`Forwarded`；`allowRemoteAccess: true` 时交给 dsh `connection.requestRejection()`（Host/Origin + 登录态），没有该服务时退回 `allowedHostnames`；文件 ID 白名单 + 解析后目录校验；body 上限 24MB；并发上限。
 
 ## 8. 配置字段
 
@@ -363,7 +363,7 @@ Profile（安装自动产生）：
   - 旧版单 Key 文件迁移到 `keys.agnes`；
   - 四个 provider 分别配置 Key，状态全部 `configured`；
   - 模型嗅探：四个 provider 的 `GET /v1/models` 均返回图像模型并标 `imageLike`；未知 provider 422；`models` 多选保存后只暴露勾选模型；自定义 GPT 模型暴露 1K/2K/3K/4K 档，4K + 16:9 映射 `3840x2160`、1K + 16:9 映射 `1280x720`，且 `supportsRatio=true`；
-  - 历史删除：`DELETE /history/<id>` 同时移除记录与文件，重复删除 404；`filePath` 随历史返回；图片 URL 是 `webServer.getOrigin()` 拼出的绝对地址；
+  - 历史删除：`DELETE /history/<id>` 同时移除记录与文件，重复删除 404；`filePath` 随历史返回；图片 URL 优先用当前请求的 Host/协议，其次用 `webApp.getAdvertisedUrl()` / `webServer.getOrigin()`；0.0.0.0 等不可用地址会退回相对路径；
   - Agnes body 逐字节等于画布契约；
   - OpenAI body：`{model,prompt,n:1,size,quality}`；
   - Grok body：`{model,prompt,n:1,response_format:"b64_json",aspect_ratio,resolution:小写 1k/2k,quality}`；xAI 子域下载带 Key，401/403 无 Key 重试；
@@ -395,7 +395,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.12.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.13.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 

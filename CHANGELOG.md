@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.13.0 — 2026-11-10
+
+- 采用 PR #2 的思路（感谢 @MuMu360121）重新适配当前代码：新增 `allowRemoteAccess`（默认 `false`）与 `allowedHostnames`，反向代理/远程入口交给 dsh `connection.requestRejection()` 做 Host/Origin 和登录态检查；未登录返回 401。
+- 图片地址优先按当前请求的 Host/协议生成；没有请求上下文时用 `webApp.getAdvertisedUrl()`，不可用则用相对路径，修复反代绑定 `0.0.0.0` 时图片加载/下载失败。
+- 默认配置行为不变，仍只允许本机访问。
+- 顶栏版本号更新为 `v0.13.0`。
+
 ## v0.12.1 — 2026-11-09
 
 - 修复右键「复制图片」报 `Failed to fetch`：图片 URL 可能是其他端口的绝对地址，跨端口 fetch 缺 CORS 头；图片路由现在返回 `Access-Control-Allow-Origin: *`，客户端也会先尝试同源路径再回退绝对 URL。

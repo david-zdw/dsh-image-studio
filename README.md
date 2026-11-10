@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.12.1** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.13.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -16,6 +16,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **多端口预览**：图片与历史地址使用主 Web 服务的绝对 origin，不再跟随当前页面的 6355/6356 端口变成 401；对话内和工具卡都能直接预览。
 - **Grok 取图**：`resolution` 使用小写 `1k/2k`；优先请求 `b64_json`，省掉“生成成功后再下载 URL”的第二次等待；下载 xAI 子域图片时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段，方便定位。
 - **GitHub 更新按钮**：标题栏「检查更新」读取 GitHub 最新 Release；有新版时执行 `git pull --ff-only`，本地有未提交改动会停止并提示，更新后重启 DSH 生效；非 Git 安装则显示「查看 vX」跳转 Release。
+- **反向代理/远程入口**：默认仍只允许本机；profile 里显式设 `allowRemoteAccess: true` 后，交给 dsh `connection` 做 Host/Origin 和登录态检查，图片地址按当前入口生成，不再出现 `0.0.0.0` 图片。
 - **多 IP 连接回退**：`api.one2api.top` 这类域名有多个 A 记录时，Node fetch 10 秒只试第一个地址；失败后自动用原生 HTTPS + `autoSelectFamily` 重试其余地址（JSON 和 multipart 都支持）。
 - **等待与超时**：默认生图超时从 180 秒提高到 **300 秒**；图片 URL 回传单独给 **120 秒**预算，不会因为生成耗时占满总超时而在最后下载失败；支持“JSON 已完整但上游不关连接”时提前返回；面板显示已等待秒数，以及请求（响应头/响应体）、回传分段耗时。
 - **图生图（最多 5 张参考图）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
@@ -60,7 +61,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.12.1`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.12.1`，可以用它确认是否生效。
+当前版本 `v0.13.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.13.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -70,7 +71,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.12.1
+git checkout v0.13.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -160,6 +161,8 @@ $DSH_HOME/image-studio/
 | `enabled` | `true` | 总开关 |
 | `defaultProvider` | `agnes` | `/image` 未写 `--provider` 时使用；点击面板服务商页签会自动更新 |
 | `providers.<id>.*` | 见下表 | 每个服务商的独立配置 |
+| `allowRemoteAccess` | `false` | 开启后允许经反向代理 / 远程入口访问；授权交给 dsh 的 `connection` 服务（Host/Origin + 登录态） |
+| `allowedHostnames` | `[]` | `connection` 服务不可用时的兜底 Host 白名单；端口会被忽略 |
 
 每个 `providers.<id>`：
 
@@ -182,6 +185,25 @@ Key 的环境变量兜底（文件 Key 优先）：
 | 兼容接口 | `DSH_IMAGE_STUDIO_OPENAI_COMPATIBLE_API_KEY` |
 
 Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境变量 > 无**；不会读取其他服务商的 Key，也不会读取 dsh 的模型凭据。
+
+### 反向代理与远程入口
+
+默认只服务回环连接（`127.0.0.1` / `::1`），带 `X-Forwarded-For` 的请求一律拒绝。要让 `https://dsh.example.com` 这类入口也能用，在 profile patch 中显式开启：
+
+```yaml
+- id: image-studio
+  name: dsh-image-studio-workbench
+  config:
+    allowRemoteAccess: true
+    # 可选：仅在 connection 服务不可用时作为兜底
+    allowedHostnames:
+      - dsh.example.com
+      - 203.0.113.7:3080
+```
+
+开启后每个请求交给 dsh 的 `connection.requestRejection()`——和 dsh 其他路由同一套 Host/Origin 围栏和浏览器登录态检查，未登录返回 401。没有该服务时退回 `allowedHostnames`，名单外仍然 403。
+
+图片地址按**当前请求的入口**生成（域名、tailnet 名、裸 IP 各用各的）；没有请求上下文时用 dsh 的对外地址（`--public-url`），再拿不到就退回相对路径，不会出现 `http://0.0.0.0:3080/...` 这种浏览器加载不了的地址。
 
 ## 开发与测试
 
