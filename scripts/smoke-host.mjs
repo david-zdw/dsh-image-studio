@@ -170,7 +170,8 @@ await fs.writeFile(path.join(storage, 'credentials.json'), JSON.stringify({ apiK
 
 let result = await call('/image-studio/status')
 assert(result.status === 200 && result.json.ok === true, 'status responds')
-assert(result.json.value.providers.length === 4, 'four provider profiles')
+assert(result.json.value.providers.length === 5, 'five provider profiles')
+assert(result.json.value.providers.some((item) => item.id === 'minimax'), 'MiniMax H3 provider is exposed')
 assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(result.json.value.version), 'status reports the package version')
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
@@ -196,6 +197,14 @@ for (const setup of [
     quality: 'medium',
   },
   {
+    providerId: 'minimax',
+    apiKey: 'sk-minimax-1234567890',
+    baseUrl: `http://127.0.0.1:${port}/minimax`,
+    model: 'MiniMax-H3-Image',
+    size: '2K',
+    ratio: '16:9',
+  },
+  {
     providerId: 'openai-compatible',
     apiKey: 'sk-compat-1234567890',
     baseUrl: `http://127.0.0.1:${port}/custom`,
@@ -207,8 +216,8 @@ for (const setup of [
   result = await call('/image-studio/setup', { method: 'POST', body: setup })
   assert(result.status === 200 && result.json.ok === true, `setup ${setup.providerId}`)
 }
-assert(result.json.value.providers.length === 4, 'setup returns provider roster')
-assert(result.json.value.providers.every((item) => item.configured), 'all four providers are configured')
+assert(result.json.value.providers.length === 5, 'setup returns provider roster')
+assert(result.json.value.providers.every((item) => item.configured), 'all five providers are configured')
 
 // Model sniffing uses the saved key and derives /v1/models from the image path.
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'agnes' } })

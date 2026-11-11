@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.14.0 — 2026-11-11
+
+- 新增 MiniMax H3 Image / H3 Image Highspeed：文生图 + 最多 16 张参考图；按 `area` + `aspect_ratio` 生成，图片编辑走 `/v1/images/edits` 的 JSON `images[].image_url`，默认 `b64_json`/PNG。
+- 参考图上限按服务商动态：MiniMax 16 张，其他仍为 5 张；请求体上限提高到 64MB，参考图总原始体积限制 48MB。
+- 提示词输入框支持 `@` 弹出参考图列表，插入 `@参考图N`；发送前会转成普通文字 `参考图N`（上游没有 @ 语法），并保持参考图上传顺序。
+- 新增「相机控制」：机身/镜头/焦段/光圈选择后，把参考 OpenStoryCanvas 的虚拟摄影机提示词追加到提示词末尾。
+- 顶栏版本号更新为 `v0.14.0`。
+
 ## v0.13.0 — 2026-11-10
 
 - 采用 PR #2 的思路（感谢 @MuMu360121）重新适配当前代码：新增 `allowRemoteAccess`（默认 `false`）与 `allowedHostnames`，反向代理/远程入口交给 dsh `connection.requestRejection()` 做 Host/Origin 和登录态检查；未登录返回 401。

@@ -1,6 +1,6 @@
 # 生图工作台（dsh-image-studio）设计说明
 
-> 目标：在 DeepSeek Harness 里做一个与「上下文洞察」同级的一级侧边栏生图插件，支持 **Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容** 四个服务商，每个服务商独立 Key；同时提供 `/image` 对话调用（模型工具 `image_studio_generate`）。Agnes 复用 `open-storyboard-canvas` 既有请求契约，OpenAI/Grok/兼容档使用各自的标准 Images API。
+> 目标：在 DeepSeek Harness 里做一个与「上下文洞察」同级的一级侧边栏生图插件，支持 **Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / OpenAI 兼容** 五个服务商，每个服务商独立 Key；同时提供 `/image` 对话调用（模型工具 `image_studio_generate`）。Agnes 复用 `open-storyboard-canvas` 既有请求契约，OpenAI/Grok/兼容档使用各自的标准 Images API。
 
 ## 1. 方案概述
 
@@ -26,11 +26,11 @@
 核心原则：
 
 1. **一个生成管线**：面板与 `/image` 都调用 `generateImage()`；只有“参数来源”不同。
-2. **一个 provider 抽象**：`lib/providers.js` 定义四个 preset；`buildRequestBody()` 按 preset 生成 body。
+2. **一个 provider 抽象**：`lib/providers.js` 定义五个 preset；`buildRequestBody()` 按 preset 生成 body。
 3. **Key 分槽**：`credentials.json` 的 `keys.<providerId>`，绝不跨服务商回退。
 4. **主题原生**：只用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等 DSH token。
 
-## 2. 四个服务商的请求契约
+## 2. 五个服务商的请求契约
 
 ### 2.1 Agnes（复用 open-storyboard-canvas）
 
@@ -99,12 +99,19 @@ Authorization: Bearer <xai key>
 - 模型：`grok-imagine-image-2.0`（默认）/ `grok-imagine-image`。
 - `resolution` 使用小写 `1k` / `2k`（xAI 字段是大小写敏感的）；`aspect_ratio` 支持 `1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9/5:2`。
 - 优先请求 `response_format:"b64_json"`，直接解码落盘，省掉 URL 下载；若上游仍返回 URL，则下载 xAI 同根域子域（如 `imgen.x.ai`）时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段。
-- 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…", …]`，比例/分辨率/质量沿用同一套参数；面板最多传 5 张，单张也用一元素数组。
+- 图生图：`POST /v1/images/edits`，JSON body 增加 `images: ["data:image/png;base64,…", …]`，比例/分辨率/质量沿用同一套参数；面板最多传 16 张（MiniMax；其他 5 张），单张也用一元素数组。
 - xAI 的旧 `grok-2-image-1212` 参数不同，未列入默认；如要接旧模型，需要另加 branch 或自建兼容接口。
 
 > 参考：xAI Imagine 文档（`docs.x.ai/developers/model-capabilities/imagine`）与 Grok Imagine Image 2.0 的 `aspect_ratio` / `resolution` / `quality` 说明。若 xAI 调整参数，改 `lib/providers.js` 的 `buildRequestBody` 即可，UI 配置可继续复用。
 
-### 2.4 OpenAI 兼容
+### 2.4 MiniMax H3 Image
+
+- 文生图：`POST /v1/images/generations`，JSON `{model, prompt, n:1, size:'auto', area:'1K|2K|4K', aspect_ratio, response_format:'b64_json', output_format:'png'}`。
+- 图片编辑：`POST /v1/images/edits`，JSON `images:[{image_url:'data:image/...;base64,...'}]`，1–16 张；上传顺序就是参考图编号。
+- 尺寸：支持 `area` + `aspect_ratio` 或 `WIDTHxHEIGHT`；插件用面积档 + 比例，面积 655,360–20,000,000，比例 1:3–3:1。
+- 官方没有 `@参考图N` 语法；面板的 `@` 只是插入辅助，发送前会转成普通「参考图N」文字，图片仍按上传顺序传递。
+
+### 2.5 OpenAI 兼容
 
 标准 OpenAI Images 协议，用户自己填 Base URL、接口路径、模型：
 
@@ -186,10 +193,10 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.13.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.14.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
-- 左列：提示词（4000 字上限）、**参考图（1–5 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
+- 左列：提示词（4000 字上限）、**参考图（1–16 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
 - 右列：结果画布、provider/model/size/ratio/quality/耗时/像素 meta、**全屏看图**（结果卡图标/点图打开；Esc/点背景关闭，全屏内可删除/下载）、**删除**、**下载原图**（`?download=1` 附件）、复制路径；结果图和全屏图右键提供「复制图片 / 复制提示词」，提示词输入框右键复制提示词；参考图生成会显示「参考图 N」标签。结果图在固定画布内绝对居中、等比缩放，1:1 图不会把面板撑出窗口。静止/出图状态显示静态矩阵点，生成中在整块结果画布内显示中心向外扩散的矩阵点（Canvas 绘制，径向遮罩扩展到画布边界与四角；`prefers-reduced-motion` 时静止），不再使用棋盘格。左右卡片等高拉伸，「最近生成」收在结果卡片底部，常规桌面高度内不需要滚动。
 - 配置弹窗：服务商页签 + 该服务商的 Key、Base URL、接口路径、默认模型、默认尺寸/比例/质量；Agnes 附带「获取 Agnes Key」直达 `https://platform.agnes-ai.cn/`（另附国际站），清除 Key 只清当前服务商。默认模型旁有「嗅探模型」：用已保存的 Key 请求 `GET /v1/models`，图像模型优先并标「图像」；模型 chips 可多选，保存后只有勾选的模型进入主面板下拉。
 - 底部：无独立区块，历史在右卡底部。
@@ -341,9 +348,9 @@ Key 读取优先级（按 provider）：
 
 | 文件 | 作用 |
 |---|---|
-| `lib/providers.js` | 四个 provider preset、尺寸/比例/质量归一、文生图/图生图请求体、参考图校验、URL 拼接 |
+| `lib/providers.js` | 五个 provider preset、尺寸/比例/质量归一、文生图/图生图请求体、参考图校验、URL 拼接 |
 | `lib/index.js` | Host：配置/Key、路由、生成、JSON/multipart 传输、错误映射、`/image` |
-| `lib/client.js` | Client：服务商页签、1–5 张参考图上传/缩略图/移除、面板、配置弹窗、`image_studio_generate` 工具结果视图、旧命令结果视图、主题 CSS |
+| `lib/client.js` | Client：服务商页签、1–16 张参考图上传/缩略图/移除、面板、配置弹窗、`image_studio_generate` 工具结果视图、旧命令结果视图、主题 CSS |
 | `package.json` / `cordis.patch.yml` | DSH bundle + client 声明 |
 | `icon.svg` | 图标 |
 | `README.md` / `docs/design.md` | 使用与设计 |
@@ -395,7 +402,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.13.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.14.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
