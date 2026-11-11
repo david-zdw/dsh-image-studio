@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.14.1 — 2026-11-12
+
+- 移除提示词卡片头部的「Ctrl / ⌘ + Enter 生成」小字，相机控制按钮右对齐；快捷键仍保留在底部快捷提示。
+- 顶栏版本号更新为 `v0.14.1`。
+
 ## v0.14.0 — 2026-11-11
 
 - 新增 MiniMax H3 Image / H3 Image Highspeed：文生图 + 最多 16 张参考图；按 `area` + `aspect_ratio` 生成，图片编辑走 `/v1/images/edits` 的 JSON `images[].image_url`，默认 `b64_json`/PNG。
