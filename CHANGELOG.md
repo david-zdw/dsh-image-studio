@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.15.0 — 2026-11-14
+
+- 新增 gpt-image-2.6（`gpt-image-2.6-sunburst` / `gpt-image-2.6-flare`）：作为 OpenAI 档的默认模型，2.5/2 系列仍保留。
+- 2.6 新增「复杂度」选择（auto / low / medium / high），与渲染质量分开；请求里作为 `complexity`。
+- 2.6 新增「格式」选择：png / jpeg / webp / gif。选 gif 时自动按每帧预算使用 512x512（16:9 为 896x512）并发送 `frame_count` / `frame_duration_ms`，可直接生成动图。
+- GIF 只支持文生图：切换 gif 会清空参考图并提示；参考图编辑仍可用 png/jpeg/webp。
+- `/image` 支持 `--format gif|png|jpeg|webp`、`--complexity`、`--frames`、`--frame-ms`。
+- 保存模型列表时保留最新默认模型，升级后旧的自定义模型列表也能看到 2.6。
+- 顶栏版本号更新为 `v0.15.0`。
+
 ## v0.14.1 — 2026-11-12
 
 - 移除提示词卡片头部的「Ctrl / ⌘ + Enter 生成」小字，相机控制按钮右对齐；快捷键仍保留在底部快捷提示。

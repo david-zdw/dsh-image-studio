@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.14.1** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.15.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -13,6 +13,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **右键复制**：大图或全屏图右键可「复制图片」「复制提示词」；复制图片会自动转 PNG 写入剪贴板，直接粘贴即可发送。提示词输入框右键也可复制提示词（有选区复制选区）。
 - **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**全屏看图与删除**、**下载原图**、复制路径、右键复制图片/提示词、`@参考图N`、相机控制、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格；结果图按画布大小等比缩放，1:1 图不会把面板撑出窗口。
 - **GPT 1K/2K/3K/4K + 比例**：自定义 GPT Image 2.5 模型尺寸只显示 1K/2K/3K/4K 四档，比例选择后自动算官方合法像素（宽高为 16 的倍数、比例 1:3–3:1、最长边≤3840、总像素 655,360–8,294,400）：`1K + 16:9 → 1280x720`、`2K + 16:9 → 2048x1152`、`4K + 16:9 → 3840x2160`；质量支持 `xhigh` / `max`。官方 gpt-image-1.x 仍只显示其支持的官方尺寸。
+- **gpt-image-2.6（含动图）**：`gpt-image-2.6-sunburst` / `gpt-image-2.6-flare`，新增「复杂度」和「格式」；格式选 `gif` 时按每帧预算（1:1 = 512x512、16:9 = 896x512）生成动图，可设 2–16 帧、20–2000ms；GIF 仅文生图，参考图编辑用 png/jpeg/webp。`/image` 也支持 `--format gif --frames 12 --frame-ms 120`。
 - **MiniMax H3 Image**：`MiniMax-H3-Image` / `MiniMax-H3-Image-Highspeed`，文生图和最多 16 张参考图编辑；按 `area`（1K/2K/4K）+ `aspect_ratio` 生成，编辑走 `/v1/images/edits` 的 `images[].image_url`，默认返回 `b64_json` PNG。
 - **多端口预览**：图片与历史地址使用主 Web 服务的绝对 origin，不再跟随当前页面的 6355/6356 端口变成 401；对话内和工具卡都能直接预览。
 - **Grok 取图**：`resolution` 使用小写 `1k/2k`；优先请求 `b64_json`，省掉“生成成功后再下载 URL”的第二次等待；下载 xAI 子域图片时带 Key，401/403 自动无 Key 重试，失败信息带 HTTP 状态和响应片段，方便定位。
@@ -62,7 +63,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.14.1`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.14.1`，可以用它确认是否生效。
+当前版本 `v0.15.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.15.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -72,7 +73,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.14.1
+git checkout v0.15.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。

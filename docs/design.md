@@ -104,6 +104,14 @@ Authorization: Bearer <xai key>
 
 > 参考：xAI Imagine 文档（`docs.x.ai/developers/model-capabilities/imagine`）与 Grok Imagine Image 2.0 的 `aspect_ratio` / `resolution` / `quality` 说明。若 xAI 调整参数，改 `lib/providers.js` 的 `buildRequestBody` 即可，UI 配置可继续复用。
 
+### 2.3b GPT Image 2.6（含 GIF 动图）
+
+- 模型：`gpt-image-2.6-sunburst`（精度）、`gpt-image-2.6-flare`（速度）；官方 OpenAI 档默认用 sunburst。
+- 参数：`quality`（low/medium/high/xhigh/max/auto）、`complexity`（low/medium/high，默认 high）、`output_format`（png/jpeg/webp/gif/svg）。
+- 动图：`output_format: 'gif'` + `frame_count`（2–16，默认 9）+ `frame_duration_ms`（20–2000，默认 200）；帧共享一份像素预算，插件按比例取每帧尺寸（1:1 512x512、16:9 896x512、21:9 1024x448 等）。GIF 只支持生成端点，不能带参考图。
+- 尺寸：非 GIF 时沿用 2.5 的校验（16 的倍数、最长边≤3840、比例≤3:1、总像素 655,360–8,294,400）。
+- 旧的自定义模型列表会保留最新默认模型，避免升级后被隐藏。
+
 ### 2.4 MiniMax H3 Image
 
 - 文生图：`POST /v1/images/generations`，JSON `{model, prompt, n:1, size:'auto', area:'1K|2K|4K', aspect_ratio, response_format:'b64_json', output_format:'png'}`。
@@ -193,7 +201,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.14.1`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.15.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–16 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -402,7 +410,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.14.1`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.15.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 

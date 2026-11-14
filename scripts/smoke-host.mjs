@@ -469,7 +469,7 @@ result = await call('/image-studio/setup', {
 })
 assert(result.status === 200, 'setup saves selected models')
 const customized = result.json.value.providers.find((item) => item.id === 'openai')
-assert(JSON.stringify(customized.models) === JSON.stringify(['gpt-image-2.5-sunburst', 'gpt-image-1.5']), 'only selected models are exposed')
+assert(JSON.stringify(customized.models) === JSON.stringify(['gpt-image-2.6-sunburst', 'gpt-image-2.5-sunburst', 'gpt-image-1.5']), 'selected models plus the newest default are exposed')
 assert(customized.size === '4K', 'custom GPT model exposes the 4K tier')
 assert(customized.supportsRatio === true, 'custom GPT model supports ratio')
 result = await call('/image-studio/generate', {
@@ -493,6 +493,45 @@ assert(result.status === 200, 'custom GPT 2K generation succeeds')
 const twoK = requests.findLast((item) => item.provider === 'openai').body
 assert(twoK.size === '2048x1152', '2K + 16:9 maps to 2048x1152')
 assert(twoK.quality === 'xhigh', 'gpt-image-2.5 accepts xhigh quality')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'openai', model: 'gpt-image-2.6-sunburst', prompt: 'a 2.6 poster',
+    size: '2K', ratio: '16:9', quality: 'high', complexity: 'medium', outputFormat: 'webp',
+  },
+})
+assert(result.status === 200, 'gpt-image-2.6 generation succeeds')
+const v26 = requests.findLast((item) => item.provider === 'openai').body
+assert(v26.model === 'gpt-image-2.6-sunburst', 'gpt-image-2.6 model id is forwarded')
+assert(v26.output_format === 'webp', 'gpt-image-2.6 sends output_format')
+assert(v26.complexity === 'medium', 'gpt-image-2.6 sends complexity')
+assert(v26.size === '2048x1152', 'gpt-image-2.6 keeps the 2K + 16:9 pixel size')
+assert(result.json.value.outputFormat === 'webp', 'result records the output format')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'openai', model: 'gpt-image-2.6-sunburst', prompt: 'a lantern swaying',
+    size: '1K', ratio: '1:1', outputFormat: 'gif', frameCount: 12, frameDurationMs: 120,
+  },
+})
+assert(result.status === 200, 'gpt-image-2.6 GIF generation succeeds')
+const gifBody = requests.findLast((item) => item.provider === 'openai').body
+assert(gifBody.output_format === 'gif', 'GIF output_format is sent')
+assert(gifBody.size === '512x512', 'GIF uses the per-frame 512x512 budget')
+assert(gifBody.frame_count === 12 && gifBody.frame_duration_ms === 120, 'GIF frame settings are sent')
+assert(gifBody.model === 'gpt-image-2.6-sunburst', 'GIF keeps the 2.6 model')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'openai', model: 'gpt-image-2.6-flare', prompt: 'a still frame',
+    size: '1K', ratio: '1:1', outputFormat: 'png',
+  },
+})
+assert(result.status === 200, 'gpt-image-2.6 flare generation succeeds')
+assert(requests.findLast((item) => item.provider === 'openai').body.model === 'gpt-image-2.6-flare', 'flare model id is forwarded')
 
 
 // Path traversal refusal.
