@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.15.2** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.15.3** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -44,7 +44,15 @@ OpenAI 兼容档可接任意 `POST /images/generations` 风格的中转/聚合�
 
 ## 安装
 
+> **包名注意**：本插件的包名是 `dsh-image-studio-workbench`，仓库名才是 `dsh-image-studio`。
+> npm 上另有一个同名的 `dsh-image-studio@0.1.x`（作者 meliodascz89，带 Stable Diffusion worker），**不是这个插件**，装错会出现「与当前 DSH 不兼容」。
+> 请用下面的 GitHub 方式安装，或从插件市场的 `david-zdw/dsh-image-studio` 条目安装。
+
 ```powershell
+# 直接装 GitHub 版本（推荐，不用 clone）
+dsh plugin --profile desktop add github:david-zdw/dsh-image-studio
+
+# 或者 clone 下来用本地 link 安装
 git clone https://github.com/david-zdw/dsh-image-studio.git
 
 # 在 DSH profile 中安装这个本地包（路径换成你的 clone 目录）
@@ -63,7 +71,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.15.2`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.15.2`，可以用它确认是否生效。
+当前版本 `v0.15.3`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.15.3`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -73,7 +81,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.15.2
+git checkout v0.15.3
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。

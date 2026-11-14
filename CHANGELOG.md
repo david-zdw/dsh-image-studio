@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.15.3 — 2026-11-14
+
+- README 安装说明补充包名提示：npm 上的 `dsh-image-studio@0.1.x` 是别人的同名插件，本插件包名是 `dsh-image-studio-workbench`，推荐用 `github:david-zdw/dsh-image-studio` 安装。
+- 顶栏版本号更新为 `v0.15.3`。
+
 ## v0.15.2 — 2026-11-14
 
 - GIF 模式下隐藏「尺寸」档位（1K/2K/3K/4K 对帧不生效），不再显示会误导的「实际输出：2048x2048」；改为显示每帧尺寸、帧数和循环时长。
