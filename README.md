@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.19.4** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.19.5** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -73,7 +73,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.19.4`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.19.4`，可以用它确认是否生效。
+当前版本 `v0.19.5`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.19.5`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -83,7 +83,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.19.4
+git checkout v0.19.5
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -227,6 +227,16 @@ node scripts/smoke-host.mjs
 ```
 
 设计、请求映射、Key 存储、两条调用链路和改动点见 [docs/design.md](docs/design.md)。
+
+## 致谢
+
+参考图库与提示词库的数据来自以下公开项目/站点，版权归各自作者所有。本插件只在运行时读取，不打包任何内容：
+
+- **AI 角色参考图库（中文版）** — 姿势 / 服装 / 人像三库：<https://github.com/anhao/ai-pose-gallery-zh> · <https://ai-pose-gallery.anhao.app/>
+- **NavXD 提示词库** — 社区出图与可复制 prompt：<https://navxd.com/prompt-template-library?cat=image>
+- **GPT-Image2 Prompt Gallery** — GPT-Image2 案例库：<https://gpt-image2.canghe.ai/#gallery>
+
+感谢以上作者与维护者。
 
 ## 备注
 
