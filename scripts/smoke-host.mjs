@@ -452,6 +452,13 @@ assert(result.status === 422 && /参考图/.test(result.json.error.message), 'in
 result = await call('/image-studio/history')
 assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
 
+// Prompt library: source metadata is static, unknown sources are rejected.
+let promptCheck = await call('/image-studio/prompts/sources')
+assert(promptCheck.status === 200 && promptCheck.json.value.length === 2, 'prompt sources are listed')
+assert(promptCheck.json.value.some((item) => item.id === 'navxd' && item.filters.styles.length > 1), 'prompt source exposes its filters')
+promptCheck = await call('/image-studio/prompts/catalog?source=unknown')
+assert(promptCheck.status === 422, 'unknown prompt source is rejected')
+
 // Reference gallery: host proxies the index and images, path-restricted.
 let galleryCheck = await call('/image-studio/gallery/catalog?library=pose')
 assert(galleryCheck.status === 200 && galleryCheck.json.value.items.length === 1, 'gallery catalog normalizes records')

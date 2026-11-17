@@ -201,7 +201,7 @@ slots.register({ name: 'main', key: 'image-studio' }, StudioPage)
 
 页面结构：
 
-- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.17.3`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
+- 顶部：图标 + 标题 + 版本（`IMAGE WORKBENCH · v0.18.0`，来自 `/status.version`）+ 服务商说明 + 当前服务商 Key 状态 + 「配置」。
 - **服务商页签**：Agnes / GPT Image / Grok / 兼容接口；每个页签带 Key 配置状态点。
 - 未配置当前服务商时：整宽警告条 + 「现在配置」，明确说明“只用于该服务商”。
 - 左列：提示词（4000 字上限）、**参考图（1–16 张，PNG/JPEG/WebP，可点选/多选/拖入，缩略图逐张移除，仅内存）**、模型、尺寸、比例（Agnes/Grok）、质量（OpenAI/Grok）、生成按钮、快捷用法；提示词框压缩为 90px，把空间留给参考图和参数。
@@ -306,6 +306,9 @@ Key 读取优先级（按 provider）：
 | POST | `/image-studio/models` | `{provider}`；用已保存的 Key 请求该 provider 的 `GET /v1/models`，返回 `{provider, providerLabel, endpoint, models:[{id,imageLike}], fetchedAt}`，不回传 Key |
 | POST | `/image-studio/generate` | `{provider?, prompt, model?, size?, ratio?, quality?, referenceImages?}` |
 | GET | `/image-studio/history` | 最近 80 条（含 provider） |
+| GET | `/image-studio/prompts/sources` | 返回两个提示词来源及其筛选器（模型/风格/类型/分类/场景） |
+| GET | `/image-studio/prompts/catalog?source=navxd\|canghe&page=&style=&type=&model=&category=&scene=&q=` | 代理读取提示词索引：NavXD 解析列表页 HTML（每页 24 条、最多 267 页），GPT-Image2 读取 `cases.json` 并本地筛选分页；缓存 10 分钟 |
+| GET | `/image-studio/prompts/image?source=&url=` | 代理提示词示例图；仅允许两个来源域名的图片目录，NavXD 会带 Referer 绕过防盗链 |
 | GET | `/image-studio/gallery/catalog?library=<pose\|costume\|portrait>` | Host 代理读取图库中文索引，归一化成 `{id,title,category,group,tags,thumb,full}`，缓存 10 分钟 |
 | GET | `/image-studio/gallery/image?path=<thumbs/…\|img/…>` | 代理图库图片；路径必须是这两目录下的图片文件、拒绝 `..`，只允许同源读取 |
 | GET | `/image-studio/update/check` | 读取 GitHub 最新 Release，返回 `{currentVersion, latestVersion, hasUpdate, canUpdate, releaseUrl}` |
@@ -414,7 +417,7 @@ Profile（安装自动产生）：
   - 加载态：Canvas 与结果区同尺寸（510×450），中心向外扩散的矩阵点 + 径向遮罩扩展到画布边界与四角，无 spinner；
   - 静止/出图态：静态矩阵点铺满结果画布，无棋盘格；
   - 1296×755 视口：`pageScroll = clientHeight = 755`，左右卡片底部同为 731px，最近生成底部约 714px，无需滚动。
-- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.17.3`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
+- **桌面窗口**：一级侧边栏「生图工作台」、版本号 `v0.18.0`、多服务商页签、参考图区域、静态矩阵点、未配置警告、配置入口均正常显示。
 
 未验证 / 待补充：
 
