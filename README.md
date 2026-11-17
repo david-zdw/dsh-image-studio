@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.15.3** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.16.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -10,6 +10,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 - **五个服务商，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
+- **参考图库 + 自动收录**：参考图区「图库」打开 AI 姿势/服装/人像图库；点「自动收录」后，浏览器下载的图片会自动压缩并加入参考图（也可 Ctrl+V 直接粘贴）。只收录开启后新下载的图片，图库本身不打包进插件。
 - **右键复制**：大图或全屏图右键可「复制图片」「复制提示词」；复制图片会自动转 PNG 写入剪贴板，直接粘贴即可发送。提示词输入框右键也可复制提示词（有选区复制选区）。
 - **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**全屏看图与删除**、**下载原图**、复制路径、右键复制图片/提示词、`@参考图N`、相机控制、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格；结果图按画布大小等比缩放，1:1 图不会把面板撑出窗口。
 - **GPT 1K/2K/3K/4K + 比例**：自定义 GPT Image 2.5 模型尺寸只显示 1K/2K/3K/4K 四档，比例选择后自动算官方合法像素（宽高为 16 的倍数、比例 1:3–3:1、最长边≤3840、总像素 655,360–8,294,400）：`1K + 16:9 → 1280x720`、`2K + 16:9 → 2048x1152`、`4K + 16:9 → 3840x2160`；质量支持 `xhigh` / `max`。官方 gpt-image-1.x 仍只显示其支持的官方尺寸。
@@ -71,7 +72,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.15.3`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.15.3`，可以用它确认是否生效。
+当前版本 `v0.16.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.16.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -81,7 +82,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.15.3
+git checkout v0.16.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -173,6 +174,7 @@ $DSH_HOME/image-studio/
 | `providers.<id>.*` | 见下表 | 每个服务商的独立配置 |
 | `allowRemoteAccess` | `false` | 开启后允许经反向代理 / 远程入口访问；授权交给 dsh 的 `connection` 服务（Host/Origin + 登录态） |
 | `allowedHostnames` | `[]` | `connection` 服务不可用时的兜底 Host 白名单；端口会被忽略 |
+| `downloadsDir` | 自动探测 | 「自动收录」监视的下载目录；留空时依次尝试 `Downloads`、`下载`、`OneDrive/Downloads` |
 
 每个 `providers.<id>`：
 

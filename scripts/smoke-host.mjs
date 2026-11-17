@@ -127,7 +127,11 @@ const ctx = {
   },
 }
 
-apply(ctx, {})
+const downloadsDir = path.join(os.tmpdir(), `dsh-image-studio-downloads-${process.pid}`)
+await fs.mkdir(downloadsDir, { recursive: true })
+await fs.writeFile(path.join(downloadsDir, 'pose-1.png'), PNG)
+await fs.writeFile(path.join(downloadsDir, 'notes.txt'), 'not an image')
+apply(ctx, { downloadsDir })
 
 const server = http.createServer((req, res) => {
   route.handler(req, res).catch((error) => {
@@ -436,6 +440,19 @@ assert(result.status === 422 && /参考图/.test(result.json.error.message), 'in
 
 result = await call('/image-studio/history')
 assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
+
+// Browser download folder pickup: only images, name-restricted reads.
+const since = Date.now() - 60_000
+let downloadCheck = await call(`/image-studio/downloads?since=${since}`)
+assert(downloadCheck.status === 200 && downloadCheck.json.value.dir === downloadsDir, 'downloads route resolves the configured folder')
+const listed = downloadCheck.json.value.items.find((item) => item.name === 'pose-1.png')
+assert(listed !== undefined, 'downloads route lists downloaded images')
+assert(!downloadCheck.json.value.items.some((item) => item.name === 'notes.txt'), 'downloads route skips non-images')
+const downloaded = await fetch(listed.url)
+assert(downloaded.status === 200 && downloaded.headers.get('content-type') === 'image/png', 'downloaded image is served')
+assert(downloaded.headers.get('access-control-allow-origin') === null, 'downloaded image is same-origin only')
+downloadCheck = await call('/image-studio/downloads/file?name=..%2Fsecret.png')
+assert(downloadCheck.status === 404, 'downloads route refuses path traversal')
 
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]

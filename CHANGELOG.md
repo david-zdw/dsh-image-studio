@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.16.0 — 2026-11-17
+
+- 参考图区新增「图库」入口，打开 AI 姿势 / 服装 / 人像参考图库（外部站点，不打包任何图片）。
+- 新增「自动收录」：开启后监视系统下载文件夹，浏览器下载的图片会自动压缩并加入参考图；只收录开启后新下载的图片，受参考图数量上限约束。
+- 支持在面板里 Ctrl+V 直接粘贴图片作为参考图。
+- 新增 `GET /image-studio/downloads`、`GET /image-studio/downloads/file`；可用 `downloadsDir` 指定下载目录，默认自动探测 Downloads / 下载 / OneDrive 下的同名目录。
+- 顶栏版本号更新为 `v0.16.0`。
+
 ## v0.15.3 — 2026-11-14
 
 - README 安装说明补充包名提示：npm 上的 `dsh-image-studio@0.1.x` 是别人的同名插件，本插件包名是 `dsh-image-studio-workbench`，推荐用 `github:david-zdw/dsh-image-studio` 安装。
