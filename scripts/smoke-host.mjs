@@ -19,6 +19,19 @@ const PNG = Buffer.from(
 
 const requests = []
 const upstream = http.createServer(async (req, res) => {
+  if (req.method === 'GET' && req.url === '/gallery/data/pose-zh.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify([
+      { id: 'pose-1', '姿势名称': '测试站姿', '体系': '全身单人・标准系', '分类': '站姿', '缩略图': 'thumbs/pose-1.png', '原图': 'img/pose-1.png', '检索': 'pose-1 测试站姿' },
+      { id: 'bad', '姿势名称': '坏数据', '缩略图': '../secret.png' },
+    ]))
+    return
+  }
+  if (req.method === 'GET' && (req.url === '/gallery/thumbs/pose-1.png' || req.url === '/gallery/img/pose-1.png')) {
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': PNG.length })
+    res.end(PNG)
+    return
+  }
   if (req.method === 'GET' && req.url === '/download.png') {
     res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': PNG.length })
     res.end(PNG)
@@ -127,7 +140,8 @@ const ctx = {
   },
 }
 
-apply(ctx, {})
+const pluginConfig = {}
+apply(ctx, pluginConfig)
 
 const server = http.createServer((req, res) => {
   route.handler(req, res).catch((error) => {
@@ -136,6 +150,7 @@ const server = http.createServer((req, res) => {
 })
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
 const origin = `http://127.0.0.1:${server.address().port}`
+pluginConfig.galleryBaseUrl = `http://127.0.0.1:${port}/gallery`
 
 async function call(pathname, options = {}) {
   const response = await fetch(`${origin}${pathname}`, {
@@ -436,6 +451,18 @@ assert(result.status === 422 && /参考图/.test(result.json.error.message), 'in
 
 result = await call('/image-studio/history')
 assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
+
+// Reference gallery: host proxies the index and images, path-restricted.
+let galleryCheck = await call('/image-studio/gallery/catalog?library=pose')
+assert(galleryCheck.status === 200 && galleryCheck.json.value.items.length === 1, 'gallery catalog normalizes records')
+const galleryItem = galleryCheck.json.value.items[0]
+assert(galleryItem.title === '测试站姿' && galleryItem.thumb === 'thumbs/pose-1.png', 'gallery keeps the chinese title and thumb path')
+const galleryImage = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent(galleryItem.thumb)}`)
+assert(galleryImage.status === 200 && galleryImage.headers.get('content-type') === 'image/png', 'gallery image proxy serves bytes')
+galleryCheck = await call('/image-studio/gallery/catalog?library=nope')
+assert(galleryCheck.status === 422, 'unknown gallery library is rejected')
+const galleryTraversal = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent('../secret.png')}`)
+assert(galleryTraversal.status === 404, 'gallery image refuses traversal')
 
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]
