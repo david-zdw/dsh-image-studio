@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.21.2 — 2026-11-18
+
+- 移除顶栏的客户端构建号 `cX.Y.Z`，只保留 `IMAGE WORKBENCH · vX.Y.Z`。
+- 顶栏版本号更新为 `v0.21.2`。
+
 ## v0.21.1 — 2026-11-18
 
 - 修复 `ReferenceError: referencesRef is not defined`：加入参考图（预览按钮与卡片「+」）都调用它，但 v0.16.1 回滚时把声明删掉了，导致点击后 Promise 直接抛错、没有任何界面变化。
