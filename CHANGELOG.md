@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.22.0 — 2026-11-18
+
+- 图库加入参考图改用原图（姿势 PNG ~512KB、服装/人像 WebP ~80–90KB），不再固定用缩略图；原图超过 12MB 时自动回退缩略图。
+- `POST /gallery/reference` 支持 `path` + `fallbackPath`，返回实际使用的路径。
+- 顶栏版本号更新为 `v0.22.0`。
+
 ## v0.21.2 — 2026-11-18
 
 - 移除顶栏的客户端构建号 `cX.Y.Z`，只保留 `IMAGE WORKBENCH · vX.Y.Z`。
