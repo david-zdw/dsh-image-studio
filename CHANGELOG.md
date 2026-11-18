@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.23.2 — 2026-11-18
+
+- 说明「Cannot read properties of undefined (reading 'trim')」也会在打开参考图库时出现：点图库按钮会让提示词输入框失焦，失焦回调写了缺少 `query` 的 mention 状态，随后图库那次渲染就崩了。v0.23.1 已补齐字段，本版再加两层兜底：下拉关闭时不再计算匹配列表、`mention.query` 空值兜底。
+- 顶栏版本号更新为 `v0.23.2`。
+
 ## v0.23.1 — 2026-11-18
 
 - 修复面板显示「生图工作台渲染出错：Cannot read properties of undefined (reading 'trim')」：在提示词里输入 `@` 后按 Esc 或点击别处关闭下拉时，`mention` 状态缺少 `query` 字段，下一次渲染在 `mention.query.trim()` 处崩溃。
