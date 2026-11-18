@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.23.1 — 2026-11-18
+
+- 修复面板显示「生图工作台渲染出错：Cannot read properties of undefined (reading 'trim')」：在提示词里输入 `@` 后按 Esc 或点击别处关闭下拉时，`mention` 状态缺少 `query` 字段，下一次渲染在 `mention.query.trim()` 处崩溃。
+- 两处关闭下拉的调用补齐 `query`，并对 `mention.query` 做空值兜底。
+- 顶栏版本号更新为 `v0.23.1`。
+
 ## v0.23.0 — 2026-11-18
 
 - 参考图库新增 SFW 开关，默认开启：隐藏姿势「性感系」（80 组）与服装「内衣・睡衣 / 性感穿搭 / 泳装・度假」（393 套），人像不受影响。
