@@ -466,6 +466,8 @@ const galleryItem = galleryCheck.json.value.items[0]
 assert(galleryItem.title === '测试站姿' && galleryItem.thumb === 'thumbs/pose-1.png', 'gallery keeps the chinese title and thumb path')
 const galleryImage = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent(galleryItem.thumb)}`)
 assert(galleryImage.status === 200 && galleryImage.headers.get('content-type') === 'image/png', 'gallery image proxy serves bytes')
+galleryCheck = await call('/image-studio/gallery/reference', { method: 'POST', body: { path: 'thumbs/pose-1.png' } })
+assert(galleryCheck.status === 200 && /^data:image\/png;base64,/.test(galleryCheck.json.value.dataUrl), 'gallery reference import returns a data url')
 galleryCheck = await call('/image-studio/gallery/catalog?library=nope')
 assert(galleryCheck.status === 422, 'unknown gallery library is rejected')
 const galleryTraversal = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent('../secret.png')}`)
