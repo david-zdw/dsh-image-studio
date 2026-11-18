@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.21.1 — 2026-11-18
+
+- 修复 `ReferenceError: referencesRef is not defined`：加入参考图（预览按钮与卡片「+」）都调用它，但 v0.16.1 回滚时把声明删掉了，导致点击后 Promise 直接抛错、没有任何界面变化。
+- 恢复 `referencesRef` 声明与同步 effect。
+- 顶栏版本号更新为 `v0.21.1`。
+
 ## v0.21.0 — 2026-11-18
 
 - 顶栏显示客户端构建号 `cX.Y.Z`，用于识别浏览器缓存了旧脚本。
