@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.24.1 — 2026-11-18
+
+- 兼容接口选 GPT Image 协议时保留 `auto` 尺寸（部分中转只接受 auto）。
+- 顶栏版本号更新为 `v0.24.1`。
+
 ## v0.24.0 — 2026-11-18
 
 - 兼容接口改为「协议 schema」模式：配置页新增「协议 / Payload」，可选 GPT Image 或 MiniMax H3。
