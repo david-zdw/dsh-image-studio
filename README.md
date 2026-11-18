@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.23.2** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.24.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -11,6 +11,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **五个服务商，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库** 和 **GPT-Image2 Gallery** 两个来源；支持模型/分类/风格/类型/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
+- **兼容接口可选协议**：配置页顶部「协议 / Payload」可切换 **GPT Image** 或 **MiniMax H3**；切换后复用对应服务商的尺寸/比例/质量/参考图上限与请求体（GPT 走 Images generations/edits，MiniMax 走 area + aspect_ratio + images[]）。
 - **SFW 开关**：参考图库默认隐藏敏感内容（姿势「性感系」、服装「内衣/性感/泳装」），底部「SFW 开/关」可切换，选择保存在本机；当前默认隐藏 80 组姿势、393 套服装。
 - **参考图库**：参考图区「参考图库」打开弹窗，内置姿势 / 服装 / 人像三个库，可中文搜索；姿势按「体系 + 编号」合并成一组，卡片标「N 角度」；点开预览可左右切换角度，再加入参考图（原图，过大自动回退缩略图）或下载。图库走 Host 代理读取公开索引，插件不打包图片；可用 `galleryBaseUrl` 指向自建镜像。
 - **右键复制**：大图或全屏图右键可「复制图片」「复制提示词」；复制图片会自动转 PNG 写入剪贴板，直接粘贴即可发送。提示词输入框右键也可复制提示词（有选区复制选区）。
@@ -74,7 +75,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.23.2`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.23.2`，可以用它确认是否生效。
+当前版本 `v0.24.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.24.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -84,7 +85,7 @@ git fetch --tags
 git pull --ff-only
 
 # 或固定到某个版本
-git checkout v0.23.2
+git checkout v0.24.0
 ```
 
 然后重启 DSH，或在插件管理器里禁用/启用一次「生图工作台」。HMR 只用于开发；普通用户重启最稳。
@@ -176,6 +177,7 @@ $DSH_HOME/image-studio/
 | `providers.<id>.*` | 见下表 | 每个服务商的独立配置 |
 | `allowRemoteAccess` | `false` | 开启后允许经反向代理 / 远程入口访问；授权交给 dsh 的 `connection` 服务（Host/Origin + 登录态） |
 | `allowedHostnames` | `[]` | `connection` 服务不可用时的兜底 Host 白名单；端口会被忽略 |
+| `schema` | `openai` | 仅兼容接口：`openai`（GPT Image）或 `minimax`（MiniMax H3），决定 payload 与面板字段 |
 | `galleryBaseUrl` | `https://ai-pose-gallery.anhao.app` | 参考图库地址；可改成自建镜像 |
 
 每个 `providers.<id>`：

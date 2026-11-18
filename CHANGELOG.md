@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.24.0 — 2026-11-18
+
+- 兼容接口改为「协议 schema」模式：配置页新增「协议 / Payload」，可选 GPT Image 或 MiniMax H3。
+- 选择后复用对应服务商的配置能力与 payload：
+  - GPT Image：1K–4K 档 + 比例、质量（2.6 还带复杂度/格式），参考图 5 张，走 Images generations/edits。
+  - MiniMax H3：1K/2K/4K + 比例，无质量，参考图 16 张，走 area + aspect_ratio + images[].image_url。
+- 主面板的尺寸/比例/质量/参考图上限随保存的 schema 变化。
+- 顶栏版本号更新为 `v0.24.0`。
+
 ## v0.23.2 — 2026-11-18
 
 - 说明「Cannot read properties of undefined (reading 'trim')」也会在打开参考图库时出现：点图库按钮会让提示词输入框失焦，失焦回调写了缺少 `query` 的 mention 状态，随后图库那次渲染就崩了。v0.23.1 已补齐字段，本版再加两层兜底：下拉关闭时不再计算匹配列表、`mention.query` 空值兜底。

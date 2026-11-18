@@ -516,7 +516,37 @@ result = await call('/image-studio/generate', {
 })
 assert(result.status === 200, 'custom GPT 4K generation succeeds')
 assert(requests.findLast((item) => item.provider === 'openai').body.size === '3840x2160', '4K + 16:9 maps to 3840x2160')
+
 assert(result.json.value.size === '3840x2160', 'result records the computed pixel size')
+// A compatible endpoint follows the schema chosen for it.
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: { providerId: 'openai-compatible', schema: 'minimax', model: 'MiniMax-H3-Image' },
+})
+assert(result.status === 200, 'compatible schema saves')
+let compat = result.json.value.providers.find((item) => item.id === 'openai-compatible')
+assert(compat.kind === 'minimax' && compat.maxReferenceImages === 16, 'compatible minimax exposes minimax capabilities')
+assert(compat.supportsQuality === false && compat.sizes.includes('4K'), 'compatible minimax sizes and quality follow the schema')
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai-compatible', prompt: 'schema payload', model: 'MiniMax-H3-Image', size: '2K', ratio: '16:9' },
+})
+assert(result.status === 200, 'compatible minimax generation succeeds')
+const compatBody = requests.findLast((item) => item.provider === 'custom').body
+assert(compatBody.area === '2K' && compatBody.aspect_ratio === '16:9' && compatBody.size === 'auto', 'compatible minimax uses the minimax payload')
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: { providerId: 'openai-compatible', schema: 'openai', model: 'gpt-image-2.6-sunburst', size: '1K', ratio: '16:9', quality: 'high' },
+})
+compat = result.json.value.providers.find((item) => item.id === 'openai-compatible')
+assert(compat.kind === 'openai' && compat.size === '1K', 'compatible schema switches back to openai')
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai-compatible', prompt: 'schema openai', model: 'gpt-image-2.6-sunburst', size: '1K', ratio: '16:9', quality: 'high' },
+})
+const openaiCompatBody = requests.findLast((item) => item.provider === 'custom').body
+assert(openaiCompatBody.size === '1280x720' && openaiCompatBody.output_format === 'png', 'compatible openai uses the gpt-image payload')
+
 result = await call('/image-studio/generate', {
   method: 'POST',
   body: { provider: 'openai', model: 'gpt-image-2.5-sunburst', prompt: 'a wide cover', size: '1K', ratio: '16:9' },
