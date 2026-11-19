@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.28.0 — 2026-11-20
+
+- 修复「上游 50 多秒就生成完、面板却等到 160 多秒」：实测慢在拿到图片 URL 后的二次下载（4.08MB 用了 106.8s，约 38KB/s），不是生成慢、也不是任务丢失。
+- 大图回传改为分段并发下载：先发 `Range: bytes=0-0` 探测，服务端返回 206 时按 6 段并发拉取并校验字节数；不支持分段（返回 200）时自动退回单流，不浪费已发出的请求。
+- OpenAI 与兼容中转的请求加 `response_format: b64_json`，尽量让图片随生成响应一起回来，省掉二次下载；中转若用 400/422 拒绝该参数，自动去掉重试一次（官方 `api.openai.com` 不发送该参数）。
+- 历史记录新增回传诊断字段：`downloadMode`、`downloadHost`、`downloadTries`、`downloadAuth`、`downloadFirstByteMs`、`downloadBodyMs`、`b64Retry`；回传超过 5 秒时在结果里显示图片大小与平均速率。
+- smoke 新增：URL 回传走分段并发、下载字节数与源文件一致、`response_format` 被拒后只重试一次且参数已去掉。
+- 顶栏版本号更新为 `v0.28.0`。
+
 ## v0.27.0 — 2026-11-20
 
 - 生成任务改为宿主侧任务：`POST /generate` 带 `async: true` 立即返回任务 id，`GET /jobs/<id>` 轮询结果，`GET /jobs` 列出运行中的任务。

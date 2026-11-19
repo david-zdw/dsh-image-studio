@@ -16,6 +16,9 @@ const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 )
+// Big enough to trigger the parallel range download path (> 1.2MB).
+const BIG_PNG = Buffer.concat([PNG, Buffer.alloc(1_500_000, 0x5a)])
+let upstreamPort = 0
 
 const requests = []
 const upstream = http.createServer(async (req, res) => {
@@ -35,6 +38,29 @@ const upstream = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/download.png') {
     res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': PNG.length })
     res.end(PNG)
+    return
+  }
+  if (req.method === 'GET' && req.url === '/big.png') {
+    const range = /bytes=(\d+)-(\d+)/.exec(String(req.headers.range || ''))
+    if (range) {
+      const start = Number(range[1])
+      const end = Math.min(Number(range[2]), BIG_PNG.length - 1)
+      const chunk = BIG_PNG.subarray(start, end + 1)
+      res.writeHead(206, {
+        'Content-Type': 'image/png',
+        'Content-Length': chunk.length,
+        'Content-Range': `bytes ${start}-${end}/${BIG_PNG.length}`,
+        'Accept-Ranges': 'bytes',
+      })
+      res.end(chunk)
+      return
+    }
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': BIG_PNG.length,
+      'Accept-Ranges': 'bytes',
+    })
+    res.end(BIG_PNG)
     return
   }
   const modelsMatch = /^\/(agnes|openai|grok|custom)\/v1\/models$/.exec(req.url || '')
@@ -80,6 +106,23 @@ const upstream = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: { message: 'proxy read timeout' } }))
       return
     }
+    if (body && body.prompt === 'return-url') {
+      requests.push({ provider: match[1], auth: req.headers.authorization, body, raw, contentType, path: req.url })
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ data: [{ url: `http://127.0.0.1:${upstreamPort}/big.png` }] }))
+      return
+    }
+    if (body && body.prompt === 'reject-b64') {
+      requests.push({ provider: match[1], auth: req.headers.authorization, body, raw, contentType, path: req.url })
+      if (body.response_format !== undefined) {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: { message: 'Unknown parameter: response_format' } }))
+        return
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
+      return
+    }
     const provider = match[1]
     requests.push({ provider, auth: req.headers.authorization, body, raw, contentType, path: req.url })
     if (provider === 'grok' && match[2] === 'generations') {
@@ -95,6 +138,7 @@ const upstream = http.createServer(async (req, res) => {
 })
 await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve))
 const port = upstream.address().port
+upstreamPort = port
 
 const commands = []
 const tools = []
@@ -302,7 +346,28 @@ assert(JSON.stringify(openaiRequest.body) === JSON.stringify({
   n: 1,
   size: '1024x1024',
   quality: 'high',
-}), 'openai body is standard Images API')
+  response_format: 'b64_json',
+}), 'openai body is standard Images API + inline base64')
+
+// URL replies are downloaded with parallel range requests; relays that reject
+// response_format get an automatic retry without it.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'return-url', model: 'gpt-image-1.5', size: '1024x1024' },
+})
+assert(result.status === 200 && result.json.ok === true, 'url reply downloads the image')
+assert(result.json.value.sourceKind === 'url', 'url reply is recorded as url source')
+assert(result.json.value.downloadMode === 'range', 'url reply downloads with parallel ranges')
+assert(result.json.value.bytes === BIG_PNG.length, 'url reply bytes match the served file')
+
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'openai', prompt: 'reject-b64', model: 'gpt-image-1.5', size: '1024x1024' },
+})
+assert(result.status === 200 && result.json.ok === true, 'response_format rejection falls back to url/base64 default')
+const b64Attempts = requests.filter((item) => item.body && item.body.prompt === 'reject-b64')
+assert(b64Attempts.length === 2, 'response_format rejection retried exactly once')
+assert(b64Attempts[1].body.response_format === undefined, 'retry drops response_format')
 
 // Grok body + URL download.
 result = await call('/image-studio/generate', {
@@ -335,7 +400,8 @@ assert(JSON.stringify(customRequest.body) === JSON.stringify({
   prompt: 'a bird',
   n: 1,
   size: '1024x1024',
-}), 'custom body omits auto quality/size surprises')
+  response_format: 'b64_json',
+}), 'custom body asks for inline base64, no auto quality')
 
 // /image is a model-facing tool; request parsing and same-conversation editing.
 const toolDef = tools.find((item) => item.name === 'image_studio_generate')
