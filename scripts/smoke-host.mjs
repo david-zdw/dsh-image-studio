@@ -262,6 +262,32 @@ assert(JSON.stringify(agnesRequest.body) === JSON.stringify({
   return_base64: true,
 }), 'agnes body matches canvas contract')
 
+// Async job mode: /generate returns a job id at once and /jobs/<id> carries
+// the finished image, so a panel that navigated away still collects it.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: { provider: 'agnes', prompt: 'async cat', size: '2K', ratio: '16:9', async: true },
+})
+assert(result.status === 200 && result.json.value.status === 'running' && /^job-/.test(result.json.value.id), 'async generate returns a running job')
+const jobId = result.json.value.id
+result = await call('/image-studio/jobs')
+assert(result.status === 200 && result.json.value.active.some((item) => item.id === jobId), 'active job is listed')
+let jobState = null
+for (let attempt = 0; attempt < 50; attempt += 1) {
+  result = await call(`/image-studio/jobs/${encodeURIComponent(jobId)}`)
+  assert(result.status === 200, 'job poll succeeds')
+  jobState = result.json.value
+  if (jobState.status !== 'running') break
+  await new Promise((resolve) => setTimeout(resolve, 40))
+}
+assert(jobState.status === 'done', 'async job finishes')
+assert(/^https?:[/][/]/.test(jobState.result.url), 'async job result URL is absolute')
+assert(jobState.result.url.startsWith(origin), 'async job result uses the request origin')
+const asyncHistory = await call('/image-studio/history')
+assert(asyncHistory.json.value.items.some((item) => item.id === jobState.result.id), 'async job is saved to history')
+result = await call('/image-studio/jobs/job-does-not-exist')
+assert(result.status === 404, 'unknown job is 404')
+
 // OpenAI GPT Image body + key.
 result = await call('/image-studio/generate', {
   method: 'POST',
