@@ -860,6 +860,8 @@ assert(clientSource.includes('backdrop-filter') && clientSource.includes('is-log
 assert(clientSource.includes('.is-head-actions .is-btn { height: 30px;') && clientSource.includes('is-reference-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px;') && clientSource.includes('is-prompt-head-actions { display: flex; align-items: center; gap: 8px;'), 'client aligns header action button heights and gaps')
 assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
 assert(clientSource.includes('function droppedImageUrls') && clientSource.includes('async function referenceFileFromUrl') && clientSource.includes("dataTransfer.setData('text/uri-list'"), 'client accepts native image drags into the reference stage')
+assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
+assert(clientSource.includes('opacity: .65') && clientSource.includes('peak: 0.22 + Math.random() * 0.06'), 'client keeps the loading dot matrix visible')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
