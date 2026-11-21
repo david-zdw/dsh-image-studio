@@ -10,7 +10,22 @@ import http from 'node:http'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { apply, executeImageTool } from '../lib/index.js'
+
+// The suite creates and deletes an isolated image-studio storage folder.
+// Never let it point at the real profile: prefer an explicit temp DSH_HOME,
+// otherwise create one, and redirect any attempt to use the live ~/.dsh.
+const realDshHome = path.resolve(os.homedir(), '.dsh')
+const requestedHome = process.env.DSH_HOME ? path.resolve(process.env.DSH_HOME) : ''
+const samePath = (a, b) => process.platform === 'win32'
+  ? a.toLowerCase() === b.toLowerCase()
+  : a === b
+const ownsSandbox = !requestedHome || samePath(requestedHome, realDshHome)
+const sandboxHome = ownsSandbox
+  ? await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-image-studio-smoke-'))
+  : requestedHome
+process.env.DSH_HOME = sandboxHome
+console.log(`smoke: DSH_HOME=${sandboxHome}`)
+const { apply, executeImageTool } = await import('../lib/index.js')
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -235,6 +250,17 @@ assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(r
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
 assert(agnes.baseUrl === `http://127.0.0.1:${port}/agnes`, 'legacy Agnes baseUrl migrates')
+assert(result.json.value.theme === 'auto', 'status exposes the default auto theme')
+assert(Array.isArray(result.json.value.themeOptions) && result.json.value.themeOptions.length === 5
+  && result.json.value.themeOptions.some((item) => item.id === 'mist' && item.label === '雾青'), 'status exposes five theme options')
+
+// Theme selection persists, and unknown ids are rejected without changing it.
+result = await call('/image-studio/setup', { method: 'POST', body: { theme: 'neon' } })
+assert(result.status === 422, 'unknown theme is rejected')
+result = await call('/image-studio/setup', { method: 'POST', body: { theme: 'mist' } })
+assert(result.status === 200 && result.json.value.theme === 'mist', 'theme selection saves')
+result = await call('/image-studio/status')
+assert(result.json.value.theme === 'mist', 'saved theme is returned by status')
 
 // Add keys/config for the other three providers.
 for (const setup of [
@@ -368,6 +394,7 @@ assert(result.status === 200 && result.json.ok === true, 'response_format reject
 const b64Attempts = requests.filter((item) => item.body && item.body.prompt === 'reject-b64')
 assert(b64Attempts.length === 2, 'response_format rejection retried exactly once')
 assert(b64Attempts[1].body.response_format === undefined, 'retry drops response_format')
+assert(result.json.value.b64Retry === true, 'telemetry records b64Retry when fallback happened')
 
 // Grok body + URL download.
 result = await call('/image-studio/generate', {
@@ -558,10 +585,25 @@ const galleryItem = galleryCheck.json.value.items[0]
 assert(galleryItem.title === '测试站姿' && galleryItem.thumb === 'thumbs/pose-1.png', 'gallery keeps the chinese title and thumb path')
 const galleryImage = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent(galleryItem.thumb)}`)
 assert(galleryImage.status === 200 && galleryImage.headers.get('content-type') === 'image/png', 'gallery image proxy serves bytes')
+assert(galleryImage.headers.get('x-image-studio-cache') === 'miss', 'first gallery thumb fetch populates disk cache')
+const galleryImageCached = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent(galleryItem.thumb)}`)
+assert(galleryImageCached.status === 200 && galleryImageCached.headers.get('x-image-studio-cache') === 'hit', 'second gallery thumb fetch hits disk cache')
+const galleryEtag = galleryImageCached.headers.get('etag')
+assert(Boolean(galleryEtag), 'cached blob exposes an ETag')
+const galleryNotModified = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent(galleryItem.thumb)}`, {
+  headers: { 'If-None-Match': galleryEtag },
+})
+assert(galleryNotModified.status === 304, 'If-None-Match returns 304 from disk cache')
 galleryCheck = await call('/image-studio/gallery/reference', { method: 'POST', body: { path: 'thumbs/pose-1.png' } })
 assert(galleryCheck.status === 200 && /^data:image\/png;base64,/.test(galleryCheck.json.value.dataUrl), 'gallery reference import returns a data url')
+assert(galleryCheck.json.value.cacheHit === true, 'gallery reference reuses cached thumb blob')
 galleryCheck = await call('/image-studio/gallery/reference', { method: 'POST', body: { path: 'img/pose-1.png', fallbackPath: 'thumbs/pose-1.png' } })
 assert(galleryCheck.status === 200 && galleryCheck.json.value.path === 'img/pose-1.png', 'gallery reference prefers the full image')
+const cacheStatus = await call('/image-studio/cache/status')
+assert(cacheStatus.status === 200 && cacheStatus.json.value.thumbCount >= 1 && cacheStatus.json.value.fullCount >= 1, 'cache status reports tiered thumb + full counts')
+assert(cacheStatus.json.value.metaFiles >= 1, 'cache status reports persisted metadata')
+const cacheCleared = await call('/image-studio/cache/clear', { method: 'POST', body: { scope: 'images' } })
+assert(cacheCleared.status === 200 && cacheCleared.json.value.blobBytes === 0, 'clearing image cache empties blob ledger')
 galleryCheck = await call('/image-studio/gallery/catalog?library=nope')
 assert(galleryCheck.status === 422, 'unknown gallery library is rejected')
 const galleryTraversal = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent('../secret.png')}`)
@@ -666,6 +708,7 @@ const v26 = requests.findLast((item) => item.provider === 'openai').body
 assert(v26.model === 'gpt-image-2.6-sunburst', 'gpt-image-2.6 model id is forwarded')
 assert(v26.output_format === 'webp', 'gpt-image-2.6 sends output_format')
 assert(v26.complexity === 'medium', 'gpt-image-2.6 sends complexity')
+assert(v26.response_format === undefined, 'gpt-image-2.6 skips response_format to avoid 400/422 double-upload retries')
 assert(v26.size === '2048x1152', 'gpt-image-2.6 keeps the 2K + 16:9 pixel size')
 assert(result.json.value.outputFormat === 'webp', 'result records the output format')
 
@@ -733,8 +776,24 @@ assert(Date.now() - openStartedAt < 2000, 'early JSON reader returns without wai
 result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'nope', prompt: 'x' } })
 assert(result.status === 422 && result.json.error.code === 'bad-request', 'unknown provider is rejected')
 
+// Client bundle loads cleanly into __ModuleLoader__ and registers bubble annotation + cache controls.
+let loadedFactory = null
+globalThis.window = {
+  __ModuleLoader__: {
+    load(spec) {
+      loadedFactory = spec
+    },
+  },
+}
+await import('../lib/client.js')
+assert(loadedFactory && loadedFactory.id === 'dsh-image-studio-workbench' && typeof loadedFactory.factory === 'function', 'client bundle registers with __ModuleLoader__')
+const clientSource = await fs.readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
+assert(clientSource.includes('is-btn-annotate') && clientSource.includes('标注编辑'), 'client registers top-right annotation edit button')
+assert(clientSource.includes('renderAnnotatedReference') && clientSource.includes('is-annotate-layer'), 'client includes numbered bubble canvas burner and overlay')
+assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
+
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
 upstream.close()
 await fs.rm(storage, { recursive: true, force: true })
-void os
+if (ownsSandbox) await fs.rm(sandboxHome, { recursive: true, force: true })
