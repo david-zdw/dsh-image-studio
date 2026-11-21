@@ -853,6 +853,7 @@ assert(clientSource.includes('renderAnnotatedReference') && clientSource.include
 assert(clientSource.includes('is-annotate-title') && clientSource.includes('is-annotate-foot-hint') && clientSource.includes('is-annotate-head-actions'), 'client styles the annotation editor header, hint and actions')
 assert(clientSource.includes('function closeIcon') && !clientSource.includes("'×'"), 'client close buttons use centered svg icons')
 assert(clientSource.includes('function plusIcon') && !clientSource.includes("'+'") && clientSource.includes('is-reference-plus'), 'client add buttons use centered svg plus icons')
+assert(clientSource.includes('display: grid; place-items: center; line-height: 0; transform-origin: 50% 50%;'), 'client centers the filled reference add button plus icon')
 assert(clientSource.includes("source: 'annotation'") && clientSource.includes("item.source !== 'annotation'"), 'client replaces previous annotation reference instead of accumulating')
 assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
 assert(clientSource.includes('backdrop-filter') && clientSource.includes('is-logo-glow'), 'client renders the frosted glass logo with glow')
