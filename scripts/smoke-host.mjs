@@ -852,6 +852,7 @@ assert(clientSource.includes('is-btn-annotate') && clientSource.includes('标注
 assert(clientSource.includes('renderAnnotatedReference') && clientSource.includes('is-annotate-layer'), 'client includes numbered bubble canvas burner and overlay')
 assert(clientSource.includes('is-annotate-title') && clientSource.includes('is-annotate-foot-hint') && clientSource.includes('is-annotate-head-actions'), 'client styles the annotation editor header, hint and actions')
 assert(clientSource.includes('function closeIcon') && !clientSource.includes("'×'"), 'client close buttons use centered svg icons')
+assert(clientSource.includes('function plusIcon') && !clientSource.includes("'+'") && clientSource.includes('is-reference-plus'), 'client add buttons use centered svg plus icons')
 assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
 assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
 
