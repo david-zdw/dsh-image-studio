@@ -854,6 +854,7 @@ assert(clientSource.includes('is-annotate-title') && clientSource.includes('is-a
 assert(clientSource.includes('function closeIcon') && !clientSource.includes("'×'"), 'client close buttons use centered svg icons')
 assert(clientSource.includes('function plusIcon') && !clientSource.includes("'+'") && clientSource.includes('is-reference-plus'), 'client add buttons use centered svg plus icons')
 assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
+assert(clientSource.includes('backdrop-filter') && clientSource.includes('is-logo-glow'), 'client renders the frosted glass logo with glow')
 assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
