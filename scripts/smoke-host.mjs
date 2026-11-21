@@ -861,7 +861,7 @@ assert(clientSource.includes('.is-head-actions .is-btn { height: 30px;') && clie
 assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
 assert(clientSource.includes('function droppedImageUrls') && clientSource.includes('async function referenceFileFromUrl') && clientSource.includes("dataTransfer.setData('text/uri-list'"), 'client accepts native image drags into the reference stage')
 assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
-assert(clientSource.includes('opacity: .65') && clientSource.includes('peak: 0.22 + Math.random() * 0.06'), 'client keeps the loading dot matrix visible')
+assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.34 + Math.random() * 0.08') && clientSource.includes('const breath = 0.72 + 0.28'), 'client keeps the loading dot matrix visible and breathing')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
