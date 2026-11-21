@@ -573,7 +573,8 @@ assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'histor
 
 // Prompt library: source metadata is static, unknown sources are rejected.
 let promptCheck = await call('/image-studio/prompts/sources')
-assert(promptCheck.status === 200 && promptCheck.json.value.length === 2, 'prompt sources are listed')
+assert(promptCheck.status === 200 && promptCheck.json.value.length >= 3, 'prompt sources are listed')
+assert(promptCheck.json.value.some((item) => item.id === 'upma' && /UPMA/.test(item.label)), 'UPMA prompt source is listed')
 assert(promptCheck.json.value.some((item) => item.id === 'navxd' && item.filters.styles.length > 1), 'prompt source exposes its filters')
 promptCheck = await call('/image-studio/prompts/catalog?source=unknown')
 assert(promptCheck.status === 422, 'unknown prompt source is rejected')
@@ -608,6 +609,65 @@ galleryCheck = await call('/image-studio/gallery/catalog?library=nope')
 assert(galleryCheck.status === 422, 'unknown gallery library is rejected')
 const galleryTraversal = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent('../secret.png')}`)
 assert(galleryTraversal.status === 404, 'gallery image refuses traversal')
+
+// Offline resource packs: manifest import, prompt/gallery catalogs, local image serving.
+const offlineRoot = path.join(process.env.DSH_HOME, 'offline-fixture')
+await fs.mkdir(path.join(offlineRoot, 'img'), { recursive: true })
+await fs.writeFile(path.join(offlineRoot, 'img', 'prompt-1.png'), PNG)
+await fs.writeFile(path.join(offlineRoot, 'img', 'pose-1.png'), PNG)
+await fs.writeFile(path.join(offlineRoot, 'prompts.json'), JSON.stringify({
+  id: 'demo-prompts',
+  label: '演示提示词包',
+  home: 'https://example.com/prompts',
+  items: [
+    { id: 'p1', title: '测试提示词', prompt: '一只戴帽子的测试猫', image: 'img/prompt-1.png', category: '测试分类', styles: ['扁平插画'], scenes: ['室内'] },
+    { id: 'bad', title: '坏数据', prompt: '不能读取', image: '../secret.png' },
+  ],
+}))
+await fs.writeFile(path.join(offlineRoot, 'gallery.json'), JSON.stringify({
+  id: 'demo-gallery',
+  label: '演示参考图包',
+  items: [
+    { id: 'g1', title: '测试姿势', thumb: 'img/pose-1.png', full: 'img/pose-1.png', category: '站姿', group: '测试系' },
+  ],
+}))
+promptCheck = await call('/image-studio/offline/import', {
+  method: 'POST',
+  body: { kind: 'prompts', manifestPath: path.join(offlineRoot, 'prompts.json') },
+})
+assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1, 'offline prompt pack imports and skips unsafe assets')
+promptCheck = await call('/image-studio/offline/import', {
+  method: 'POST',
+  body: {
+    kind: 'gallery',
+    baseDir: offlineRoot,
+    manifest: { id: 'demo-gallery', label: '演示参考图包', items: [{ id: 'g1', title: '测试姿势', thumb: 'img/pose-1.png', full: 'img/pose-1.png', category: '站姿', group: '测试系' }] },
+  },
+})
+assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1, 'offline gallery pack imports from direct manifest')
+promptCheck = await call('/image-studio/offline/packs')
+assert(promptCheck.status === 200 && promptCheck.json.value.prompts.length === 1 && promptCheck.json.value.gallery.length === 1, 'offline packs are listed by kind')
+promptCheck = await call('/image-studio/prompts/sources')
+assert(promptCheck.json.value.some((item) => item.id === 'offline:demo-prompts' && item.offline === true && item.itemCount === 1), 'offline prompt source is exposed')
+promptCheck = await call('/image-studio/prompts/catalog?source=offline%3Ademo-prompts')
+assert(promptCheck.status === 200 && promptCheck.json.value.items[0].prompt === '一只戴帽子的测试猫', 'offline prompt catalog returns normalized items')
+assert(/^offline:\/\/demo-prompts\//.test(promptCheck.json.value.items[0].image), 'offline prompt keeps a confined image reference')
+const offlinePromptImage = await fetch(`${origin}/image-studio/prompts/image?source=${encodeURIComponent('offline:demo-prompts')}&url=${encodeURIComponent(promptCheck.json.value.items[0].image)}`)
+assert(offlinePromptImage.status === 200 && offlinePromptImage.headers.get('content-type') === 'image/png', 'offline prompt image is served from disk')
+promptCheck = await call('/image-studio/gallery/libraries')
+assert(promptCheck.status === 200 && promptCheck.json.value.some((item) => item.id === 'offline:demo-gallery' && item.itemCount === 1), 'offline gallery library is exposed')
+promptCheck = await call('/image-studio/gallery/catalog?library=offline%3Ademo-gallery')
+assert(promptCheck.status === 200 && promptCheck.json.value.items[0].title === '测试姿势', 'offline gallery catalog returns items')
+const offlineGalleryImage = await fetch(`${origin}/image-studio/gallery/image?path=${encodeURIComponent('offline://demo-gallery/img/pose-1.png')}`)
+assert(offlineGalleryImage.status === 200 && offlineGalleryImage.headers.get('content-type') === 'image/png', 'offline gallery image is served from disk')
+const offlineFile = await fetch(`${origin}/image-studio/offline/file?kind=gallery&pack=demo-gallery&path=${encodeURIComponent('img/pose-1.png')}`)
+assert(offlineFile.status === 200 && offlineFile.headers.get('content-type') === 'image/png', 'offline file route serves pack assets')
+promptCheck = await call('/image-studio/gallery/reference', { method: 'POST', body: { path: 'offline://demo-gallery/img/pose-1.png' } })
+assert(promptCheck.status === 200 && /^data:image\/png;base64,/.test(promptCheck.json.value.dataUrl), 'offline gallery image can be added as a reference')
+promptCheck = await call('/image-studio/offline/remove', { method: 'POST', body: { kind: 'prompts', id: 'demo-prompts' } })
+assert(promptCheck.status === 200 && promptCheck.json.value.removed === true, 'offline prompt pack removes')
+promptCheck = await call('/image-studio/offline/remove', { method: 'POST', body: { kind: 'gallery', id: 'demo-gallery' } })
+assert(promptCheck.status === 200 && promptCheck.json.value.removed === true, 'offline gallery pack removes')
 
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]
@@ -791,6 +851,7 @@ const clientSource = await fs.readFile(new URL('../lib/client.js', import.meta.u
 assert(clientSource.includes('is-btn-annotate') && clientSource.includes('标注编辑'), 'client registers top-right annotation edit button')
 assert(clientSource.includes('renderAnnotatedReference') && clientSource.includes('is-annotate-layer'), 'client includes numbered bubble canvas burner and overlay')
 assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
+assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()

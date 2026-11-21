@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.32.0 — 2026-11-21
+
+- 新增 **UPMA Prompt Atlas** 提示词来源：解析 `https://www.upma.cn/image-prompts` 的 Next.js RSC 数据，内置 420 条案例、13 个分类；支持分类/风格/场景筛选、搜索和分页，长提示词自动从 RSC 分块还原；图片按现有磁盘缓存策略按需缓存。
+- 新增 **离线资源包**接口：提示词库和参考图库右上角「离线导入」，通过 `manifest.json` 接入用户自己爬取的资源；支持提示词包与参考图包、中文/英文键名、本地图片按需读取，并可随时删除索引。
+- 新增 Host API：`GET /offline/packs`、`POST /offline/import`、`POST /offline/remove`、`GET /offline/file`，以及 `/prompts/sources`、`/prompts/catalog?source=offline:<id>`、`/gallery/libraries`、`/gallery/catalog?library=offline:<id>` 的离线分支，方便外部爬虫脚本直接对接。
+- 安全边界：离线图片路径必须位于清单目录（或指定 `baseDir`）内，只接受 png/jpg/jpeg/webp/gif；单包最多 20,000 条、64MB，单图最大 32MB。
+- 冒烟测试补充 UPMA 来源、离线包导入/目录/图片/参考图/删除断言。
+- 顶栏版本号更新为 `v0.32.0`。
+
 ## v0.31.0 — 2026-11-21
 
 - 新增工作台配色：配置弹窗顶部提供「跟随外观 / 雾青 / 米杏 / 黛蓝 / 藕荷」5 套素雅低饱和配色，点选即保存并即时生效；`config.json` 新增 `theme` 字段，旧配置自动迁移为 `auto`，配色只作用于工作台，不改 dsh 全局主题。

@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.31.0** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.32.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -10,7 +10,8 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 
 - **五个服务商，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
-- **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库** 和 **GPT-Image2 Gallery** 两个来源；支持模型/分类/风格/类型/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
+- **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库**、**GPT-Image2 Gallery** 和 **UPMA Prompt Atlas** 三个来源；UPMA 自动解析 Next.js 页面里的 420 条案例（13 个分类，长提示词从 RSC 分块还原），支持分类/风格/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
+- **离线资源包**：提示词库和参考图库右上角新增「离线导入」。把爬取好的提示词/参考图整理成 `manifest.json`（图片路径相对清单目录），就能作为新的来源离线使用；也提供 `POST /image-studio/offline/import` 等接口给外部爬虫/脚本调用。图片保留在本地，不占工作台图片缓存。
 - **兼容接口可选协议**：配置页顶部「协议 / Payload」可切换 **GPT Image** 或 **MiniMax H3**；切换后复用对应服务商的尺寸/比例/质量/参考图上限与请求体（GPT 走 Images generations/edits，MiniMax 走 area + aspect_ratio + images[]）。
 - **SFW 开关**：参考图库默认隐藏敏感内容（姿势「性感系」、服装「内衣/性感/泳装」），底部「SFW 开/关」可切换，选择保存在本机；当前默认隐藏 80 组姿势、393 套服装。
 - **参考图库**：参考图区「参考图库」打开弹窗，内置姿势 / 服装 / 人像三个库，可中文搜索；姿势按「体系 + 编号」合并成一组，卡片标「N 角度」；点开预览可左右切换角度，再加入参考图（原图，过大自动回退缩略图）或下载。图库走 Host 代理读取公开索引，插件不打包图片；可用 `galleryBaseUrl` 指向自建镜像。
@@ -76,7 +77,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.31.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.31.0`，可以用它确认是否生效。
+当前版本 `v0.32.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.32.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -163,9 +164,70 @@ $DSH_HOME/image-studio/
 | `$DSH_HOME/image-studio/config.json` | `defaultProvider` 与每个服务商的 Base URL / 模型 / 默认参数 |
 | `$DSH_HOME/image-studio/history.json` | 最近 80 条生成元数据（含 provider） |
 | `$DSH_HOME/image-studio/outputs/` | 生成的 PNG/JPEG/WebP/GIF |
+| `$DSH_HOME/image-studio/offline/` | 离线资源包索引：`prompts/<id>.json`、`gallery/<id>.json`；图片仍留在用户自己的目录 |
 | 参考图 | 只在浏览器内存中参与当前请求；不写入 history、outputs 或任何配置文件 |
 
 `$DSH_HOME` 默认是 `~/.dsh`（Windows：`C:\Users\<你>\.dsh`）。
+
+## 离线资源包
+
+提示词库或参考图库右上角点「离线导入」，填写 `manifest.json` 的路径（或包含 `manifest.json` / `index.json` / `pack.json` 的目录）即可。图片路径相对于清单文件所在目录，也可以额外指定「图片根目录」。
+
+提示词包示例：
+
+```json
+{
+  "id": "my-prompts",
+  "label": "我的爬取提示词",
+  "home": "https://example.com/prompts",
+  "items": [
+    {
+      "id": "p1",
+      "title": "示例提示词",
+      "prompt": "完整的提示词正文",
+      "image": "images/p1.jpg",
+      "category": "插画",
+      "styles": ["扁平"],
+      "scenes": ["室内"]
+    }
+  ]
+}
+```
+
+参考图包示例：
+
+```json
+{
+  "id": "my-gallery",
+  "label": "我的参考图",
+  "items": [
+    {
+      "id": "g1",
+      "title": "示例姿势",
+      "thumb": "thumbs/g1.jpg",
+      "full": "full/g1.jpg",
+      "category": "站姿",
+      "group": "标准系",
+      "tags": ["全身"]
+    }
+  ]
+}
+```
+
+参考图包也接受中文键名：`缩略图` / `原图` / `预览图` / `姿势名称` / `服装名称` / `分类` / `体系` / `标签` / `检索` / `姿势编号` / `角度`。
+
+开发者接口（本机 Host，前缀 `/image-studio`）：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/offline/packs` | 列出 `{ prompts: [...], gallery: [...] }` |
+| `POST` | `/offline/import` | `{ "kind": "prompts" \| "gallery", "manifestPath": "..." }`，或直接提交 `{ "kind": "...", "manifest": {...}, "baseDir": "..." }` |
+| `POST` | `/offline/remove` | `{ "kind": "...", "id": "..." }`，只删索引，不删图片 |
+| `GET` | `/offline/file?kind=prompts&pack=my-prompts&path=images/p1.jpg` | 读取包内图片 |
+| `GET` | `/prompts/catalog?source=offline:my-prompts` | 提示词包目录（支持 `q` / `page` / `category` / `style` / `scene`） |
+| `GET` | `/gallery/catalog?library=offline:my-gallery` | 参考图包目录 |
+
+安全限制：所有图片必须位于清单目录（或 `baseDir`）内，只接受 png / jpg / jpeg / webp / gif；单个清单最多 20,000 条、64MB，单张图片最大 32MB。
 
 ## 配置字段
 
