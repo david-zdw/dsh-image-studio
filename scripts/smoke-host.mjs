@@ -854,6 +854,7 @@ assert(clientSource.includes('is-annotate-title') && clientSource.includes('is-a
 assert(clientSource.includes('function closeIcon') && !clientSource.includes("'×'"), 'client close buttons use centered svg icons')
 assert(clientSource.includes('function plusIcon') && !clientSource.includes("'+'") && clientSource.includes('is-reference-plus'), 'client add buttons use centered svg plus icons')
 assert(clientSource.includes('function dashedCirclePlusIcon') && clientSource.includes('dashedCirclePlusIcon(30)') && clientSource.includes('aspect-ratio: 1 / 1'), 'client renders the empty reference plus as a true svg dashed circle')
+assert(clientSource.includes('function emptyCanvasIcon') && clientSource.includes('准备开始创作') && clientSource.includes('is-empty-tags') && clientSource.includes('.is-canvas:not(.is-loading-canvas) .is-dot-canvas { opacity: .46; }'), 'client renders the polished result empty state')
 assert(clientSource.includes('display: grid; place-items: center; line-height: 0; transform-origin: 50% 50%;'), 'client centers the filled reference add button plus icon')
 assert(clientSource.includes("source: 'annotation'") && clientSource.includes("item.source !== 'annotation'"), 'client replaces previous annotation reference instead of accumulating')
 assert(clientSource.includes('data-studio-theme') && clientSource.includes('is-theme-grid'), 'client applies the selected studio theme and renders the picker')
