@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.34.0 — 2026-11-22
+
+- 豆包 Seedream 4.0 正式接入：`POST /api/v3/images/generations`，支持 1K/2K/4K 档位、比例映射像素尺寸、`response_format: b64_json`、`watermark: false`；参考图通过 `image[]`（最多 14 张，PNG/JPEG/WebP 数据 URL）传入。
+- Gemini Nano Banana 正式接入：默认走 Gemini 原生 `POST /v1beta/models/{model}:generateContent`，使用 `x-goog-api-key`、`contents[].parts[].inlineData` 和 `generationConfig.imageConfig`（aspectRatio + imageSize）；也支持 New API / Sub2API 的 OpenAI 兼容 `/v1/images/generations` 协议，配置页可切换「Gemini 原生 / OpenAI 兼容」。
+- 响应解析兼容 Gemini `inlineData.data` 和代理常见的 `fileData.fileUri`；Google 图片下载使用 `x-goog-api-key`，中转站同时兼容 Bearer。
+- 配置页服务商下拉保留 7 个入口；Nano Banana 增加协议选择与对应接口路径/尺寸说明。
+- 添加 Seedream、Nano Banana 的请求体、模型嗅探、OpenAI 兼容分支和原生 Gemini 分支冒烟测试，全部通过。
+- 顶栏版本号更新为 `v0.34.0`。
+
 ## v0.33.0 — 2026-11-22
 
 - 新增两个服务商占位入口：豆包 Seedream（`seedream`）和 Gemini Nano Banana（`nanobanana`）。主面板横向页签现在有 7 个入口，两个占位项使用较轻的视觉权重。

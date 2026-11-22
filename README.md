@@ -1,14 +1,14 @@
 # dsh-image-studio · 生图工作台
 
-DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
+DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与按服务商上限最多 14 张参考图的图生图。
 
-当前版本：**v0.33.0** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.34.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
 ## 功能
 
-- **七个服务商入口，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream（占位）/ Gemini Nano Banana（占位）/ 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。两个占位入口已出现在主面板和配置页，生成与模型嗅探会明确提示「接入中」。
+- **七个服务商入口，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。Seedream 4.0 支持 1K/2K/4K 档位与最多 14 张参考图；Nano Banana 支持 Gemini 原生 `generateContent` 或 OpenAI 兼容 `/v1/images/generations` 两种协议，最多 5 张参考图。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库**、**GPT-Image2 Gallery** 和 **UPMA Prompt Atlas** 三个来源；UPMA 自动解析 Next.js 页面里的 420 条案例（13 个分类，长提示词从 RSC 分块还原），支持分类/风格/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
 - **离线资源包**：提示词库和参考图库右上角新增「离线导入」。把爬取好的提示词/参考图整理成 `manifest.json`（图片路径相对清单目录），就能作为新的来源离线使用；也提供 `POST /image-studio/offline/import` 等接口给外部爬虫/脚本调用。图片保留在本地，不占工作台图片缓存。
@@ -27,7 +27,7 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **反向代理/远程入口**：默认仍只允许本机；profile 里显式设 `allowRemoteAccess: true` 后，交给 dsh `connection` 做 Host/Origin 和登录态检查，图片地址按当前入口生成，不再出现 `0.0.0.0` 图片。
 - **多 IP 连接回退**：`api.one2api.top` 这类域名有多个 A 记录时，Node fetch 10 秒只试第一个地址；失败后自动用原生 HTTPS + `autoSelectFamily` 重试其余地址（JSON 和 multipart 都支持）。
 - **等待与超时**：默认生图超时从 180 秒提高到 **300 秒**；图片 URL 回传单独给 **120 秒**预算，不会因为生成耗时占满总超时而在最后下载失败；支持“JSON 已完整但上游不关连接”时提前返回；面板显示已等待秒数，以及请求（响应头/响应体）、回传分段耗时。
-- **图生图（最多 5 张参考图）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，也可把右侧生成结果或「最近生成」缩略图直接拖到参考图区；缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`；DALL·E 3 不支持参考图。
+- **图生图（按服务商上限，Seedream 最多 14 张）**：提示词下方「添加参考图」，支持 PNG / JPEG / WebP，可点选或拖入多张，也可把右侧生成结果或「最近生成」缩略图直接拖到参考图区；缩略图逐张可移除；Agnes 走 `extra_body.image[]`，OpenAI / 兼容走 `multipart /v1/images/edits`（重复 `image` 字段），Grok 走 JSON `/v1/images/edits` 的 `images[]`，Seedream 走 `image[]`；DALL·E 3 不支持参考图。
 - **`/image` 对话调用**：作为普通消息发送，模型调用 `image_studio_generate` 工具生成/修改；不注册 slash command，也不写 session 消息（避免缺少 `message.id` 的旧问题）。模型会把图片 Markdown 带回聊天内联显示，工具卡还提供「打开本地文件 / 打开原图」。输入框正常清空，可继续聊天；同一对话首条文生图，后续自动基于上一张修改，`--new` 重新生成。工具报错时模型不再自动重试（尤其是上游 HTTP 524 网关超时），先报告并询问是否重新生成，避免一次 30 秒的图拖成 5 分钟。
 - **模型嗅探**：配置 Key 后在「生图设置」点「嗅探模型」，用已保存的 Key 拉取服务商 `/v1/models`；结果可多选，只有勾选的模型保存后会进入主面板下拉，图像模型带「图像」标记。
 - **素雅工作台配色**：配置弹窗顶部可选「跟随外观 / 雾青 / 米杏 / 黛蓝 / 藕荷」5 套低饱和配色，点选即保存并即时生效，不影响 dsh 全局主题；底层仍使用 `--dsw-alias-*`、`--dsh-frame-top-clearance` 等实时 token。
@@ -45,8 +45,8 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 | `openai` | OpenAI GPT Image | `https://api.openai.com` | `gpt-image-1.5` | 像素 `size` + `quality`；DALL·E 3 自动切换尺寸/质量 | `multipart /v1/images/edits`（DALL·E 3 不支持） |
 | `grok` | Grok Image | `https://api.x.ai` | `grok-imagine-image-2.0` | `aspect_ratio` + `resolution`（1K/2K）+ `quality` | JSON `/v1/images/edits`，`images[]` |
 | `minimax` | MiniMax H3 Image | `https://api.minimax.io` | `MiniMax-H3-Image` | `area` 档位 + `aspect_ratio` | `/v1/images/edits`，`images[].image_url` |
-| `seedream` | 豆包 Seedream（占位） | `https://ark.cn-beijing.volces.com` | `doubao-seedream-4-0-250828` | 占位；生成/模型嗅探提示接入中 | 未开放 |
-| `nanobanana` | Gemini Nano Banana（占位） | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash-image` | 占位；生成/模型嗅探提示接入中 | 未开放 |
+| `seedream` | 豆包 Seedream | `https://ark.cn-beijing.volces.com` | `doubao-seedream-4-0-250828` | `1K/2K/4K` 档位 + 比例 -> 像素 `size`；`response_format:b64_json`、`watermark:false` | 同 generations，`image[]` 参考图（最多 14 张） |
+| `nanobanana` | Gemini Nano Banana | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash-image` | Gemini 原生 `generateContent`（`generationConfig.imageConfig`）或 OpenAI 兼容 `/v1/images/generations`；1K/2K/4K | 原生 `inlineData` parts（最多 5 张） |
 | `openai-compatible` | OpenAI 兼容 | `https://api.example.com` | `gpt-image-1` | 自己填 Base URL / 接口路径 / 模型，标准 Images body | `multipart /v1/images/edits` |
 
 OpenAI 兼容档可接任意 `POST /images/generations` 风格的中转/聚合器；模型名、尺寸、接口路径都可以在面板里改。图生图接口按生成路径把 `generations` 替换为 `edits`（默认 `/v1/images/edits`），Base URL 不变。
@@ -80,7 +80,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.33.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.33.0`，可以用它确认是否生效。
+当前版本 `v0.34.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.34.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -128,8 +128,8 @@ $DSH_HOME/image-studio/
 
 1. 点击侧边栏「生图工作台」。
 2. 主面板选择服务商页签（Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / 兼容接口）。
-3. 点右上角「配置」，在「服务商」下拉里选择，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。保存 Key 后可点「嗅探模型」，从服务商 `/v1/models` 拉取列表；勾选需要的模型（可多选）后保存，主面板下拉只显示勾选的模型。Seedream、Nano Banana 为占位入口，配置页会显示「接入中」，不能生成或嗅探。
-4. 需要图生图时，在提示词下方点「添加参考图」，可选择或拖入多张 PNG / JPEG / WebP（最多 5 张）；缩略图会显示在参考图区域，可逐张移除。
+3. 点右上角「配置」，在「服务商」下拉里选择，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。保存 Key 后可点「嗅探模型」，从服务商 `/v1/models` 拉取列表；勾选需要的模型（可多选）后保存，主面板下拉只显示勾选的模型。Nano Banana 在配置页可选择 **Gemini 原生**（`generateContent` / `imageConfig`）或 **OpenAI 兼容**（`/v1/images/generations`，适合 New API / Sub2API 中转）；Seedream 使用火山方舟 ARK Key。
+4. 需要图生图时，在提示词下方点「添加参考图」，可选择或拖入多张 PNG / JPEG / WebP（按服务商上限，Seedream 最多 14 张，Nano Banana 最多 5 张）；缩略图会显示在参考图区域，可逐张移除。
 5. 输入提示词，点「生成图片」。
 6. 生成后结果右上角有全屏图标、**删除**、**下载原图**（PNG/JPEG/WebP）和「复制路径」；点全屏图标或图片本身可全屏查看（Esc/点背景关闭，全屏内也可删除/下载），历史缩略图右上角也可删除。
 
@@ -155,7 +155,7 @@ $DSH_HOME/image-studio/
 
 简写规则：**开头的服务商/尺寸/比例可以任意顺序写**，遇到第一个不认识的词就开始当提示词。`gpt 2k 16:9`、`grok 2k 9:16`、`agnes 1k 1:1`、`2k 16:9` 都行。
 
-`--provider` 支持 `agnes`、`openai`（别名 `gpt`）、`grok`、`openai-compatible`（别名 `compatible`/`custom`）。
+`--provider` 支持 `agnes`、`openai`（别名 `gpt`）、`grok`、`minimax`、`seedream`（别名 `doubao`/`doubao-seedream`）、`nanobanana`（别名 `nano-banana`/`gemini`）、`openai-compatible`（别名 `compatible`/`custom`）。
 
 `/image` 工具支持对话内连续修改：第一条生成，第二条起自动把上一张作为参考图；`/image --new <提示词>` 强制重新文生图。
 
@@ -265,8 +265,8 @@ Key 的环境变量兜底（文件 Key 优先）：
 | OpenAI | `DSH_IMAGE_STUDIO_OPENAI_API_KEY` |
 | Grok | `DSH_IMAGE_STUDIO_GROK_API_KEY` |
 | MiniMax H3 | `DSH_IMAGE_STUDIO_MINIMAX_API_KEY` |
-| 豆包 Seedream（占位） | `DSH_IMAGE_STUDIO_SEEDREAM_API_KEY` |
-| Gemini Nano Banana（占位） | `DSH_IMAGE_STUDIO_NANOBANANA_API_KEY` |
+| 豆包 Seedream | `DSH_IMAGE_STUDIO_SEEDREAM_API_KEY` |
+| Gemini Nano Banana | `DSH_IMAGE_STUDIO_NANOBANANA_API_KEY` |
 | 兼容接口 | `DSH_IMAGE_STUDIO_OPENAI_COMPATIBLE_API_KEY` |
 
 Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境变量 > 无**；不会读取其他服务商的 Key，也不会读取 dsh 的模型凭据。

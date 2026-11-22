@@ -90,7 +90,49 @@ const upstream = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ data: catalog[modelsMatch[1]].map((id) => ({ id })) }))
     return
   }
-  const match = /^\/(agnes|openai|grok|custom)\/v1\/images\/(generations|edits)$/.exec(req.url || '')
+  const extraModelsMatch = /^\/(seedream\/api\/v3|nanobanana\/v1)\/models$/.exec(req.url || '')
+  if (req.method === 'GET' && extraModelsMatch) {
+    const catalog = {
+      'seedream/api/v3': ['doubao-seedream-4-0-250828', 'doubao-seedream-3-0-t2i-250415'],
+      'nanobanana/v1': ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview'],
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ data: catalog[extraModelsMatch[1]].map((id) => ({ id })) }))
+    return
+  }
+  const seedreamMatch = /^\/seedream\/api\/v3\/images\/generations$/.exec(req.url || '')
+  if (req.method === 'POST' && seedreamMatch) {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    const raw = Buffer.concat(chunks).toString('utf8')
+    let body = null
+    try { body = JSON.parse(raw) } catch { body = null }
+    requests.push({ provider: 'seedream', auth: req.headers.authorization, body, raw, contentType: req.headers['content-type'], path: req.url })
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
+    return
+  }
+  const geminiMatch = /^\/nanobanana\/v1beta\/models\/([^/:]+):generateContent$/.exec(req.url || '')
+  if (req.method === 'POST' && geminiMatch) {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    const raw = Buffer.concat(chunks).toString('utf8')
+    let body = null
+    try { body = JSON.parse(raw) } catch { body = null }
+    requests.push({
+      provider: 'nanobanana',
+      auth: req.headers.authorization,
+      apiKey: req.headers['x-goog-api-key'],
+      body,
+      raw,
+      contentType: req.headers['content-type'],
+      path: req.url,
+    })
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: BIG_PNG.toString('base64') } }] } }] }))
+    return
+  }
+  const match = /^\/(agnes|openai|grok|custom|nanobanana-openai)\/v1\/images\/(generations|edits)$/.exec(req.url || '')
   if (req.method === 'POST' && match) {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
@@ -246,8 +288,8 @@ let result = await call('/image-studio/status')
 assert(result.status === 200 && result.json.ok === true, 'status responds')
 assert(result.json.value.providers.length === 7, 'seven provider profiles')
 assert(result.json.value.providers.some((item) => item.id === 'minimax'), 'MiniMax H3 provider is exposed')
-assert(result.json.value.providers.some((item) => item.id === 'seedream' && item.placeholder === true && item.label === '豆包 Seedream'), 'Seedream placeholder is exposed')
-assert(result.json.value.providers.some((item) => item.id === 'nanobanana' && item.placeholder === true && item.label === 'Gemini Nano Banana'), 'Nano Banana placeholder is exposed')
+assert(result.json.value.providers.some((item) => item.id === 'seedream' && item.kind === 'seedream' && item.label === '豆包 Seedream' && item.placeholder !== true), 'Seedream provider is exposed')
+assert(result.json.value.providers.some((item) => item.id === 'nanobanana' && item.kind === 'gemini' && item.label === 'Gemini Nano Banana' && item.placeholder !== true), 'Nano Banana provider is exposed')
 assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(result.json.value.version), 'status reports the package version')
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
@@ -292,6 +334,23 @@ for (const setup of [
     ratio: '16:9',
   },
   {
+    providerId: 'seedream',
+    apiKey: 'seedream-test-key',
+    baseUrl: `http://127.0.0.1:${port}/seedream`,
+    model: 'doubao-seedream-4-0-250828',
+    size: '2K',
+    ratio: '16:9',
+  },
+  {
+    providerId: 'nanobanana',
+    apiKey: 'nanobanana-test-key',
+    baseUrl: `http://127.0.0.1:${port}/nanobanana`,
+    model: 'gemini-2.5-flash-image',
+    size: '2K',
+    ratio: '16:9',
+    schema: 'gemini',
+  },
+  {
     providerId: 'openai-compatible',
     apiKey: 'sk-compat-1234567890',
     baseUrl: `http://127.0.0.1:${port}/custom`,
@@ -304,8 +363,8 @@ for (const setup of [
   assert(result.status === 200 && result.json.ok === true, `setup ${setup.providerId}`)
 }
 assert(result.json.value.providers.length === 7, 'setup returns provider roster')
-assert(result.json.value.providers.filter((item) => item.configured).length === 5, 'five real providers are configured')
-assert(result.json.value.providers.filter((item) => item.placeholder).every((item) => item.configured === false), 'placeholder providers stay unconfigured')
+assert(result.json.value.providers.filter((item) => item.configured).length === 7, 'all seven real providers are configured')
+assert(result.json.value.providers.filter((item) => item.placeholder).length === 0, 'no placeholder providers remain')
 
 // Model sniffing uses the saved key and derives /v1/models from the image path.
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'agnes' } })
@@ -319,9 +378,9 @@ assert(result.status === 200 && result.json.value.models.some((item) => item.id 
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nope' } })
 assert(result.status === 422, 'unknown provider model sniffing is rejected')
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'seedream' } })
-assert(result.status === 503 && result.json.error.code === 'unavailable', 'placeholder provider model sniffing is unavailable')
-result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'nanobanana', prompt: 'test' } })
-assert(result.status === 503 && result.json.error.code === 'unavailable', 'placeholder provider generation is unavailable')
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'doubao-seedream-4-0-250828' && item.imageLike), 'seedream model sniffing returns image models')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nanobanana' } })
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'gemini-2.5-flash-image' && item.imageLike), 'nanobanana model sniffing returns image models')
 
 // Agnes body + legacy key.
 result = await call('/image-studio/generate', {
@@ -420,6 +479,92 @@ assert(JSON.stringify(grokRequest.body) === JSON.stringify({
   resolution: '1k',
   quality: 'medium',
 }), 'grok body uses aspect_ratio + resolution')
+
+// Seedream 4.0 body: explicit pixel size + inline reference data URLs.
+const seedreamReference = `data:image/png;base64,${PNG.toString('base64')}`
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'seedream',
+    prompt: 'a mountain',
+    model: 'doubao-seedream-4-0-250828',
+    size: '2K',
+    ratio: '16:9',
+    referenceImages: [seedreamReference],
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'seedream generate')
+const seedreamRequest = requests.findLast((item) => item.provider === 'seedream')
+assert(seedreamRequest.auth === 'Bearer seedream-test-key', 'seedream uses its own key')
+assert(JSON.stringify(seedreamRequest.body) === JSON.stringify({
+  model: 'doubao-seedream-4-0-250828',
+  prompt: 'a mountain',
+  response_format: 'b64_json',
+  watermark: false,
+  size: '2848x1600',
+  image: [seedreamReference],
+}), 'seedream body uses explicit size and image array')
+
+// Gemini native generateContent body: inlineData parts + imageConfig.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'nanobanana',
+    prompt: 'a flower',
+    model: 'gemini-2.5-flash-image',
+    size: '2K',
+    ratio: '16:9',
+    referenceImages: [seedreamReference],
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'nanobanana native generate')
+const nanobananaRequest = requests.findLast((item) => item.provider === 'nanobanana')
+assert(typeof nanobananaRequest.apiKey === 'string' && nanobananaRequest.apiKey.length > 0, 'nanobanana native uses x-goog-api-key')
+assert(JSON.stringify(nanobananaRequest.body) === JSON.stringify({
+  contents: [{
+    role: 'user',
+    parts: [
+      { text: 'a flower' },
+      { inlineData: { mimeType: 'image/png', data: PNG.toString('base64') } },
+    ],
+  }],
+  generationConfig: {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: { aspectRatio: '16:9', imageSize: '2K' },
+  },
+}), 'nanobanana native body uses generateContent parts and imageConfig')
+
+// Nano Banana can also be exposed by relays through OpenAI Images protocol.
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: {
+    providerId: 'nanobanana',
+    apiKey: 'nanobanana-test-key',
+    baseUrl: `http://127.0.0.1:${port}/nanobanana-openai`,
+    schema: 'openai',
+    endpointPath: '/v1/images/generations',
+    model: 'gemini-2.5-flash-image',
+    size: '1K',
+    ratio: '1:1',
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'nanobanana openai schema saves')
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'nanobanana',
+    prompt: 'a car',
+    model: 'gemini-2.5-flash-image',
+    size: '1K',
+    ratio: '1:1',
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'nanobanana openai generate')
+const nanobananaOpenAiRequest = requests.findLast((item) => item.provider === 'nanobanana-openai')
+assert(nanobananaOpenAiRequest.body.model === 'gemini-2.5-flash-image', 'nanobanana openai uses model')
+assert(nanobananaOpenAiRequest.body.prompt === 'a car', 'nanobanana openai uses prompt')
+assert(nanobananaOpenAiRequest.body.n === 1, 'nanobanana openai uses images n=1')
+assert(nanobananaOpenAiRequest.body.size === '1024x1024', 'nanobanana openai maps 1K 1:1 size')
 
 // Custom OpenAI-compatible body + key.
 result = await call('/image-studio/generate', {
@@ -874,7 +1019,7 @@ assert(clientSource.includes('is-offline-modal') && clientSource.includes('离�
 assert(clientSource.includes('function droppedImageUrls') && clientSource.includes('async function referenceFileFromUrl') && clientSource.includes("dataTransfer.setData('text/uri-list'"), 'client accepts native image drags into the reference stage')
 assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
 assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.34 + Math.random() * 0.08') && clientSource.includes('const breath = 0.72 + 0.28'), 'client keeps the loading dot matrix visible and breathing')
-assert(clientSource.includes('is-setup-provider-select') && clientSource.includes('（接入中）') && clientSource.includes('is-provider-placeholder'), 'client renders provider dropdown and placeholder badges')
+assert(clientSource.includes('is-setup-provider-select') && clientSource.includes('Gemini 原生走 generateContent（imageConfig）') && clientSource.includes('OpenAI 兼容走 /v1/images/generations（model + prompt）'), 'client renders provider dropdown and nanobanana schema guidance')
 assert(clientSource.includes('grid-template-columns: minmax(320px, 420px) minmax(0, 1fr)') && clientSource.includes('is-head-right') && clientSource.includes('is-version-row') && clientSource.includes('is-update-inline') && clientSource.includes('flex-wrap: nowrap'), 'client keeps update near version and provider toolbar aligned with result column')
 assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && clientSource.includes('.is-head-right .is-head-actions .is-btn { height: 38px;'), 'client matches setup button height to provider bar')
 
