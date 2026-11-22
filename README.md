@@ -2,13 +2,13 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与按服务商上限的参考图生图（Seedream 5.5 / 5.0 Pro 10 张、4.0 14 张）。
 
-当前版本：**v0.34.2** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.34.3** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
 ## 功能
 
-- **七个服务商入口，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。Seedream 5.5 / 5.0 Pro 支持 1K/1.5K/2K 档位与最多 10 张参考图，4.0 支持 1K/2K/4K 与最多 14 张；Nano Banana 支持 Gemini 原生 `generateContent` 或 OpenAI 兼容 `/v1/images/generations` 两种协议，最多 5 张参考图。
+- **七个服务商入口，各自独立 Key**：Agnes / GPT / Grok / MiniMax / 豆包 Seedream / Gemini / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。主面板只显示已配置 Key 的服务商，按 Agnes 到兼容接口的顺序自适应展开；全部未配置时提示先配置一个 API Key。Seedream 5.5 / 5.0 Pro 支持 1K/1.5K/2K 档位与最多 10 张参考图，4.0 支持 1K/2K/4K 与最多 14 张；Gemini 支持原生 `generateContent` 或 OpenAI 兼容 `/v1/images/generations` 两种协议，最多 5 张参考图。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库**、**GPT-Image2 Gallery** 和 **UPMA Prompt Atlas** 三个来源；UPMA 自动解析 Next.js 页面里的 420 条案例（13 个分类，长提示词从 RSC 分块还原），支持分类/风格/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
 - **离线资源包**：提示词库和参考图库右上角新增「离线导入」。把爬取好的提示词/参考图整理成 `manifest.json`（图片路径相对清单目录），就能作为新的来源离线使用；也提供 `POST /image-studio/offline/import` 等接口给外部爬虫/脚本调用。图片保留在本地，不占工作台图片缓存。

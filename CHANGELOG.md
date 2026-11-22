@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.34.3 — 2026-11-22
+
+- 主面板服务商展示条改为只显示已配置 Key 的服务商，并按 Agnes、GPT、Grok、MiniMax、Seedream、Gemini、兼容接口的顺序从左向右自适应展开；未配置的入口不再占位。
+- 服务商短名统一为单词：`GPT Image` → `GPT`、`MiniMax H3` → `MiniMax`、`Nano Banana` → `Gemini`。
+- 全部服务商都未配置时，展示「需要先配置一个 API Key 才可以使用」，生成按钮同时禁用；配置保存后会立即刷新展示条并选中新配置的服务商。
+- 冒烟测试补充短名、动态展示条和空状态断言。
+
 ## v0.34.2 — 2026-11-22
 
 - 修复 Seedream 5.x 中转站模型别名（如 `gpt-image-seedream-5-0-pro`）未命中尺寸规则的问题：按模型名正则识别 5.x，统一只提供 `1K/1.5K/2K`，不再显示或接受 4K，参考图上限按 10 张处理，避免上游 `image area must be at most 4624220 pixels` 报错。
