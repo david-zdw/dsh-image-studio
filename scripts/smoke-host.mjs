@@ -369,6 +369,17 @@ assert(result.json.value.providers.length === 7, 'setup returns provider roster'
 assert(result.json.value.providers.filter((item) => item.configured).length === 7, 'all seven real providers are configured')
 assert(result.json.value.providers.filter((item) => item.placeholder).length === 0, 'no placeholder providers remain')
 
+// Relay-style Seedream 5.0 Pro aliases must get the 5.x size whitelist too.
+result = await call('/image-studio/setup', {
+  method: 'POST',
+  body: { providerId: 'seedream', model: 'gpt-image-seedream-5-0-pro', size: '2K', ratio: '9:16' },
+})
+assert(result.status === 200 && result.json.ok === true, 'seedream relay alias setup')
+result = await call('/image-studio/status')
+const seedreamAlias = result.json.value.providers.find((item) => item.id === 'seedream')
+assert(seedreamAlias.sizes.includes('2K') && !seedreamAlias.sizes.includes('4K'), 'seedream 5.x alias excludes 4K')
+assert(seedreamAlias.maxReferenceImages === 10, 'seedream 5.x alias caps references at 10')
+
 // Model sniffing uses the saved key and derives /v1/models from the image path.
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'agnes' } })
 assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'agnes-image-2.5-flash' && item.imageLike), 'agnes model sniffing returns image models')
@@ -528,6 +539,21 @@ assert(JSON.stringify(seedream55Request.body) === JSON.stringify({
   watermark: false,
   size: '2048x1152',
 }), 'seedream 5.5 body uses 1.5K pixel mapping')
+
+// Relay-style model IDs should use the 5.x pixel map, not the 4.0 map.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'seedream',
+    prompt: 'a relay model',
+    model: 'gpt-image-seedream-5-0-pro',
+    size: '2K',
+    ratio: '9:16',
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'seedream relay alias generate')
+const seedreamAliasRequest = requests.findLast((item) => item.provider === 'seedream')
+assert(seedreamAliasRequest.body.size === '1584x2816', 'seedream 5.x alias uses 5.x pixel map')
 
 // Gemini native generateContent body: inlineData parts + imageConfig.
 result = await call('/image-studio/generate', {

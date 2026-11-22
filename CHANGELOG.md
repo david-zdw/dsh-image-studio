@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.34.2 — 2026-11-22
+
+- 修复 Seedream 5.x 中转站模型别名（如 `gpt-image-seedream-5-0-pro`）未命中尺寸规则的问题：按模型名正则识别 5.x，统一只提供 `1K/1.5K/2K`，不再显示或接受 4K，参考图上限按 10 张处理，避免上游 `image area must be at most 4624220 pixels` 报错。
+- 冒烟测试补充 Seedream 别名状态和 2K 9:16 payload 覆盖。
+
 ## v0.34.1 — 2026-11-22
 
 - 豆包 Seedream 模型升级：新增 `doubao-seedream-5-5-261028`（5.5）和 `doubao-seedream-5-0-pro-260628`（5.0 Pro），默认模型改为 Seedream 5.5；保留 4.0 / 3.0。
