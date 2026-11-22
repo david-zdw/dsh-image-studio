@@ -1075,6 +1075,7 @@ assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.3
 assert(clientSource.includes('is-setup-provider-select') && clientSource.includes('Gemini 原生走 generateContent（imageConfig）') && clientSource.includes('OpenAI 兼容走 /v1/images/generations（model + prompt）'), 'client renders provider dropdown and nanobanana schema guidance')
 assert(clientSource.includes('grid-template-columns: minmax(320px, 420px) minmax(0, 1fr)') && clientSource.includes('is-head-right') && clientSource.includes('is-version-row') && clientSource.includes('is-update-inline') && clientSource.includes('flex-wrap: nowrap'), 'client keeps update near version and provider toolbar aligned with result column')
 assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && clientSource.includes('.is-head-right .is-head-actions .is-btn { height: 38px;'), 'client matches setup button height to provider bar')
+assert(clientSource.includes('.is-head-right { display: flex; align-items: center; justify-content: space-between;'), 'client keeps config button pinned to the right edge')
 assert(clientSource.includes('configuredProviders.length > 0') && clientSource.includes('configuredProviders.map') && clientSource.includes('is-provider-empty') && clientSource.includes('需要先配置一个 API Key 才可以使用'), 'client only shows configured providers and warns when none')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
