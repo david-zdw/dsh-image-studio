@@ -875,6 +875,8 @@ assert(clientSource.includes('function droppedImageUrls') && clientSource.includ
 assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
 assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.34 + Math.random() * 0.08') && clientSource.includes('const breath = 0.72 + 0.28'), 'client keeps the loading dot matrix visible and breathing')
 assert(clientSource.includes('is-setup-provider-select') && clientSource.includes('（接入中）') && clientSource.includes('is-provider-placeholder'), 'client renders provider dropdown and placeholder badges')
+assert(clientSource.includes('grid-template-columns: minmax(320px, 420px) minmax(0, 1fr)') && clientSource.includes('is-head-right') && clientSource.includes('is-version-row') && clientSource.includes('is-update-inline') && clientSource.includes('flex-wrap: nowrap'), 'client keeps update near version and provider toolbar aligned with result column')
+assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && clientSource.includes('.is-head-right .is-head-actions .is-btn { height: 38px;'), 'client matches setup button height to provider bar')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
