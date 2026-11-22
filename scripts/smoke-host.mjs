@@ -244,8 +244,10 @@ await fs.writeFile(path.join(storage, 'credentials.json'), JSON.stringify({ apiK
 
 let result = await call('/image-studio/status')
 assert(result.status === 200 && result.json.ok === true, 'status responds')
-assert(result.json.value.providers.length === 5, 'five provider profiles')
+assert(result.json.value.providers.length === 7, 'seven provider profiles')
 assert(result.json.value.providers.some((item) => item.id === 'minimax'), 'MiniMax H3 provider is exposed')
+assert(result.json.value.providers.some((item) => item.id === 'seedream' && item.placeholder === true && item.label === '豆包 Seedream'), 'Seedream placeholder is exposed')
+assert(result.json.value.providers.some((item) => item.id === 'nanobanana' && item.placeholder === true && item.label === 'Gemini Nano Banana'), 'Nano Banana placeholder is exposed')
 assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(result.json.value.version), 'status reports the package version')
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
@@ -301,8 +303,9 @@ for (const setup of [
   result = await call('/image-studio/setup', { method: 'POST', body: setup })
   assert(result.status === 200 && result.json.ok === true, `setup ${setup.providerId}`)
 }
-assert(result.json.value.providers.length === 5, 'setup returns provider roster')
-assert(result.json.value.providers.every((item) => item.configured), 'all five providers are configured')
+assert(result.json.value.providers.length === 7, 'setup returns provider roster')
+assert(result.json.value.providers.filter((item) => item.configured).length === 5, 'five real providers are configured')
+assert(result.json.value.providers.filter((item) => item.placeholder).every((item) => item.configured === false), 'placeholder providers stay unconfigured')
 
 // Model sniffing uses the saved key and derives /v1/models from the image path.
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'agnes' } })
@@ -315,6 +318,10 @@ result = await call('/image-studio/models', { method: 'POST', body: { provider: 
 assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'my-image-model'), 'compatible model sniffing works')
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nope' } })
 assert(result.status === 422, 'unknown provider model sniffing is rejected')
+result = await call('/image-studio/models', { method: 'POST', body: { provider: 'seedream' } })
+assert(result.status === 503 && result.json.error.code === 'unavailable', 'placeholder provider model sniffing is unavailable')
+result = await call('/image-studio/generate', { method: 'POST', body: { provider: 'nanobanana', prompt: 'test' } })
+assert(result.status === 503 && result.json.error.code === 'unavailable', 'placeholder provider generation is unavailable')
 
 // Agnes body + legacy key.
 result = await call('/image-studio/generate', {
@@ -867,6 +874,7 @@ assert(clientSource.includes('is-offline-modal') && clientSource.includes('离�
 assert(clientSource.includes('function droppedImageUrls') && clientSource.includes('async function referenceFileFromUrl') && clientSource.includes("dataTransfer.setData('text/uri-list'"), 'client accepts native image drags into the reference stage')
 assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
 assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.34 + Math.random() * 0.08') && clientSource.includes('const breath = 0.72 + 0.28'), 'client keeps the loading dot matrix visible and breathing')
+assert(clientSource.includes('is-setup-provider-select') && clientSource.includes('（接入中）') && clientSource.includes('is-provider-placeholder'), 'client renders provider dropdown and placeholder badges')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()

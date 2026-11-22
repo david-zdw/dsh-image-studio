@@ -1,14 +1,14 @@
 # dsh-image-studio · 生图工作台
 
-DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
+DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与最多 5 张参考图的图生图。
 
-当前版本：**v0.32.12** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.33.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
 ## 功能
 
-- **五个服务商，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。
+- **七个服务商入口，各自独立 Key**：Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream（占位）/ Gemini Nano Banana（占位）/ 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。两个占位入口已出现在主面板和配置页，生成与模型嗅探会明确提示「接入中」。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库**、**GPT-Image2 Gallery** 和 **UPMA Prompt Atlas** 三个来源；UPMA 自动解析 Next.js 页面里的 420 条案例（13 个分类，长提示词从 RSC 分块还原），支持分类/风格/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
 - **离线资源包**：提示词库和参考图库右上角新增「离线导入」。把爬取好的提示词/参考图整理成 `manifest.json`（图片路径相对清单目录），就能作为新的来源离线使用；也提供 `POST /image-studio/offline/import` 等接口给外部爬虫/脚本调用。图片保留在本地，不占工作台图片缓存。
@@ -44,6 +44,9 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 | `agnes` | Agnes | `https://apihub.agnes-ai.cn` | `agnes-image-2.5-flash` | `size` 档位 1K–4K + `ratio` | 同 generations，`extra_body.image` |
 | `openai` | OpenAI GPT Image | `https://api.openai.com` | `gpt-image-1.5` | 像素 `size` + `quality`；DALL·E 3 自动切换尺寸/质量 | `multipart /v1/images/edits`（DALL·E 3 不支持） |
 | `grok` | Grok Image | `https://api.x.ai` | `grok-imagine-image-2.0` | `aspect_ratio` + `resolution`（1K/2K）+ `quality` | JSON `/v1/images/edits`，`images[]` |
+| `minimax` | MiniMax H3 Image | `https://api.minimax.io` | `MiniMax-H3-Image` | `area` 档位 + `aspect_ratio` | `/v1/images/edits`，`images[].image_url` |
+| `seedream` | 豆包 Seedream（占位） | `https://ark.cn-beijing.volces.com` | `doubao-seedream-4-0-250828` | 占位；生成/模型嗅探提示接入中 | 未开放 |
+| `nanobanana` | Gemini Nano Banana（占位） | `https://generativelanguage.googleapis.com` | `gemini-2.5-flash-image` | 占位；生成/模型嗅探提示接入中 | 未开放 |
 | `openai-compatible` | OpenAI 兼容 | `https://api.example.com` | `gpt-image-1` | 自己填 Base URL / 接口路径 / 模型，标准 Images body | `multipart /v1/images/edits` |
 
 OpenAI 兼容档可接任意 `POST /images/generations` 风格的中转/聚合器；模型名、尺寸、接口路径都可以在面板里改。图生图接口按生成路径把 `generations` 替换为 `edits`（默认 `/v1/images/edits`），Base URL 不变。
@@ -77,7 +80,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.32.12`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.32.12`，可以用它确认是否生效。
+当前版本 `v0.33.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.33.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -124,8 +127,8 @@ $DSH_HOME/image-studio/
 ## 使用
 
 1. 点击侧边栏「生图工作台」。
-2. 选择服务商页签（Agnes / GPT Image / Grok / 兼容接口）。
-3. 点右上角「配置」，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。保存 Key 后可点「嗅探模型」，从服务商 `/v1/models` 拉取列表；勾选需要的模型（可多选）后保存，主面板下拉只显示勾选的模型。
+2. 主面板选择服务商页签（Agnes / GPT Image / Grok / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / 兼容接口）。
+3. 点右上角「配置」，在「服务商」下拉里选择，给**当前服务商**填 Key、Base URL、模型、默认参数；Agnes 配置里有「获取 Agnes Key」直达平台。保存 Key 后可点「嗅探模型」，从服务商 `/v1/models` 拉取列表；勾选需要的模型（可多选）后保存，主面板下拉只显示勾选的模型。Seedream、Nano Banana 为占位入口，配置页会显示「接入中」，不能生成或嗅探。
 4. 需要图生图时，在提示词下方点「添加参考图」，可选择或拖入多张 PNG / JPEG / WebP（最多 5 张）；缩略图会显示在参考图区域，可逐张移除。
 5. 输入提示词，点「生成图片」。
 6. 生成后结果右上角有全屏图标、**删除**、**下载原图**（PNG/JPEG/WebP）和「复制路径」；点全屏图标或图片本身可全屏查看（Esc/点背景关闭，全屏内也可删除/下载），历史缩略图右上角也可删除。
@@ -261,6 +264,9 @@ Key 的环境变量兜底（文件 Key 优先）：
 | Agnes | `DSH_IMAGE_STUDIO_AGNES_API_KEY`，兼容旧 `DSH_IMAGE_STUDIO_API_KEY` |
 | OpenAI | `DSH_IMAGE_STUDIO_OPENAI_API_KEY` |
 | Grok | `DSH_IMAGE_STUDIO_GROK_API_KEY` |
+| MiniMax H3 | `DSH_IMAGE_STUDIO_MINIMAX_API_KEY` |
+| 豆包 Seedream（占位） | `DSH_IMAGE_STUDIO_SEEDREAM_API_KEY` |
+| Gemini Nano Banana（占位） | `DSH_IMAGE_STUDIO_NANOBANANA_API_KEY` |
 | 兼容接口 | `DSH_IMAGE_STUDIO_OPENAI_COMPATIBLE_API_KEY` |
 
 Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境变量 > 无**；不会读取其他服务商的 Key，也不会读取 dsh 的模型凭据。
@@ -287,7 +293,7 @@ Key 优先级：**`credentials.json` 中该服务商的 Key > 该服务商环境
 ## 开发与测试
 
 ```powershell
-# 四服务商宿主冒烟（mock 上游）：Key 隔离、请求体、image_studio_generate、文件路由
+# 多服务商宿主冒烟（mock 上游）：Key 隔离、请求体、image_studio_generate、文件路由
 $env:DSH_HOME='D:\deepseek\_smoke-home'
 node scripts/smoke-host.mjs
 ```
