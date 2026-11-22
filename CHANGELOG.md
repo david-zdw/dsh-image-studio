@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.34.1 — 2026-11-22
+
+- 豆包 Seedream 模型升级：新增 `doubao-seedream-5-5-261028`（5.5）和 `doubao-seedream-5-0-pro-260628`（5.0 Pro），默认模型改为 Seedream 5.5；保留 4.0 / 3.0。
+- 按模型区分尺寸档位：5.5 / 5.0 Pro 使用 `1K/1.5K/2K`，4.0 使用 `1K/2K/4K`；补充 1.5K 官方比例像素映射（如 16:9 -> 2048x1152）。
+- 按模型区分参考图上限：5.5 / 5.0 Pro 最多 10 张，4.0 最多 14 张；`buildStatus` 根据当前模型返回对应上限。
+- 冒烟测试补充 Seedream 5.5 的 1.5K payload 和模型嗅探覆盖。
+
 ## v0.34.0 — 2026-11-22
 
 - 豆包 Seedream 4.0 正式接入：`POST /api/v3/images/generations`，支持 1K/2K/4K 档位、比例映射像素尺寸、`response_format: b64_json`、`watermark: false`；参考图通过 `image[]`（最多 14 张，PNG/JPEG/WebP 数据 URL）传入。

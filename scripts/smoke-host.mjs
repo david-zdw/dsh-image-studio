@@ -93,7 +93,7 @@ const upstream = http.createServer(async (req, res) => {
   const extraModelsMatch = /^\/(seedream\/api\/v3|nanobanana\/v1)\/models$/.exec(req.url || '')
   if (req.method === 'GET' && extraModelsMatch) {
     const catalog = {
-      'seedream/api/v3': ['doubao-seedream-4-0-250828', 'doubao-seedream-3-0-t2i-250415'],
+      'seedream/api/v3': ['doubao-seedream-5-5-261028', 'doubao-seedream-5-0-pro-260628', 'doubao-seedream-4-0-250828'],
       'nanobanana/v1': ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview'],
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -289,6 +289,9 @@ assert(result.status === 200 && result.json.ok === true, 'status responds')
 assert(result.json.value.providers.length === 7, 'seven provider profiles')
 assert(result.json.value.providers.some((item) => item.id === 'minimax'), 'MiniMax H3 provider is exposed')
 assert(result.json.value.providers.some((item) => item.id === 'seedream' && item.kind === 'seedream' && item.label === '豆包 Seedream' && item.placeholder !== true), 'Seedream provider is exposed')
+const seedreamStatus = result.json.value.providers.find((item) => item.id === 'seedream')
+assert(seedreamStatus.model === 'doubao-seedream-5-5-261028', 'Seedream defaults to 5.5')
+assert(seedreamStatus.maxReferenceImages === 10, 'Seedream 5.5 reference limit is 10')
 assert(result.json.value.providers.some((item) => item.id === 'nanobanana' && item.kind === 'gemini' && item.label === 'Gemini Nano Banana' && item.placeholder !== true), 'Nano Banana provider is exposed')
 assert(typeof result.json.value.version === 'string' && /^\d+\.\d+\.\d+$/.test(result.json.value.version), 'status reports the package version')
 const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
@@ -378,7 +381,7 @@ assert(result.status === 200 && result.json.value.models.some((item) => item.id 
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nope' } })
 assert(result.status === 422, 'unknown provider model sniffing is rejected')
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'seedream' } })
-assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'doubao-seedream-4-0-250828' && item.imageLike), 'seedream model sniffing returns image models')
+assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'doubao-seedream-5-5-261028' && item.imageLike), 'seedream model sniffing returns current image models')
 result = await call('/image-studio/models', { method: 'POST', body: { provider: 'nanobanana' } })
 assert(result.status === 200 && result.json.value.models.some((item) => item.id === 'gemini-2.5-flash-image' && item.imageLike), 'nanobanana model sniffing returns image models')
 
@@ -504,6 +507,27 @@ assert(JSON.stringify(seedreamRequest.body) === JSON.stringify({
   size: '2848x1600',
   image: [seedreamReference],
 }), 'seedream body uses explicit size and image array')
+
+// Seedream 5.5 body: 1.5K tier maps to its own official pixel size.
+result = await call('/image-studio/generate', {
+  method: 'POST',
+  body: {
+    provider: 'seedream',
+    prompt: 'a city at dusk',
+    model: 'doubao-seedream-5-5-261028',
+    size: '1.5K',
+    ratio: '16:9',
+  },
+})
+assert(result.status === 200 && result.json.ok === true, 'seedream 5.5 generate')
+const seedream55Request = requests.findLast((item) => item.provider === 'seedream')
+assert(JSON.stringify(seedream55Request.body) === JSON.stringify({
+  model: 'doubao-seedream-5-5-261028',
+  prompt: 'a city at dusk',
+  response_format: 'b64_json',
+  watermark: false,
+  size: '2048x1152',
+}), 'seedream 5.5 body uses 1.5K pixel mapping')
 
 // Gemini native generateContent body: inlineData parts + imageConfig.
 result = await call('/image-studio/generate', {
