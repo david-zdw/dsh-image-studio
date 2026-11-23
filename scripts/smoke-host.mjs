@@ -301,7 +301,6 @@ const agnes = result.json.value.providers.find((item) => item.id === 'agnes')
 assert(agnes.configured === true && agnes.masked === 'sk-l…7890', 'legacy Agnes key migrates to the per-provider file')
 assert(agnes.baseUrl === `http://127.0.0.1:${port}/agnes`, 'legacy Agnes baseUrl migrates')
 assert(result.json.value.theme === 'auto', 'status exposes the default auto theme')
-assert(result.json.value.nightMode === false, 'status exposes default day mode')
 assert(Array.isArray(result.json.value.themeOptions) && result.json.value.themeOptions.length === 5
   && result.json.value.themeOptions.some((item) => item.id === 'mist' && item.label === '雾青'), 'status exposes five theme options')
 
@@ -312,12 +311,6 @@ result = await call('/image-studio/setup', { method: 'POST', body: { theme: 'mis
 assert(result.status === 200 && result.json.value.theme === 'mist', 'theme selection saves')
 result = await call('/image-studio/status')
 assert(result.json.value.theme === 'mist', 'saved theme is returned by status')
-
-// Night mode persists independently of the palette.
-result = await call('/image-studio/setup', { method: 'POST', body: { nightMode: true } })
-assert(result.status === 200 && result.json.value.nightMode === true, 'night mode saves')
-result = await call('/image-studio/status')
-assert(result.json.value.nightMode === true, 'saved night mode is returned by status')
 
 // Add keys/config for the other three providers.
 for (const setup of [
@@ -1084,7 +1077,7 @@ assert(clientSource.includes('grid-template-columns: minmax(320px, 420px) minmax
 assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && clientSource.includes('.is-head-right .is-head-actions .is-btn { height: 38px;'), 'client matches setup button height to provider bar')
 assert(clientSource.includes('.is-head-right { display: flex; align-items: center; justify-content: space-between;'), 'client keeps config button pinned to the right edge')
 assert(clientSource.includes('configuredProviders.length > 0') && clientSource.includes('configuredProviders.map') && clientSource.includes('is-provider-empty') && clientSource.includes('需要先配置一个 API Key 才可以使用'), 'client only shows configured providers and warns when none')
-assert(clientSource.includes('data-studio-night') && clientSource.includes('is-mode-toggle') && clientSource.includes('夜晚模式') && clientSource.includes('#0e1311') && clientSource.includes('#3f7564'), 'client renders a dedicated night palette and sun/moon toggle')
+assert(clientSource.includes("window.matchMedia('(prefers-color-scheme: dark)')") && clientSource.includes("addEventListener('change'") && clientSource.includes('data-studio-night') && clientSource.includes('#0e1311') && clientSource.includes('#3f7564'), 'client auto-detects system dark preference and renders the night palette')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
