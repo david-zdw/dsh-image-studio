@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与按服务商上限的参考图生图（Seedream 5.5 / 5.0 Pro 10 张、4.0 14 张）。
 
-当前版本：**v0.36.4** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.36.5** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -81,7 +81,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.36.4`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.36.4`，可以用它确认是否生效。
+当前版本 `v0.36.5`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.36.5`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
