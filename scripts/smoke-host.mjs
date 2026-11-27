@@ -1098,7 +1098,8 @@ assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && 
 assert(clientSource.includes('.is-head-right { display: flex; align-items: center; justify-content: space-between;'), 'client keeps config button pinned to the right edge')
 assert(clientSource.includes('configuredProviders.length > 0') && clientSource.includes('configuredProviders.map') && clientSource.includes('is-provider-empty') && clientSource.includes('需要先配置一个 API Key 才可以使用'), 'client only shows configured providers and warns when none')
 assert(clientSource.includes("window.matchMedia('(prefers-color-scheme: dark)')") && clientSource.includes("addEventListener('change'") && clientSource.includes('data-studio-night') && clientSource.includes('#0e1311') && clientSource.includes('#3f7564'), 'client auto-detects system dark preference and renders the night palette')
-assert(clientSource.includes('is-prompt-composer') && clientSource.includes('fillComposedPrompt') && clientSource.includes('组合提示词') && clientSource.includes('pageSize=500'), 'client renders the handraw prompt composition bar')
+assert(clientSource.includes('is-prompt-composer') && clientSource.includes('fillComposedPrompt') && clientSource.includes('selectComposerItem') && clientSource.includes('组合提示词') && clientSource.includes('pageSize=500'), 'client renders the handraw prompt composition bar')
+assert(clientSource.includes("}, '组合')") && clientSource.includes('is-prompt-composer-slots'), 'client offers card-level compose buttons and slot summary')
 assert(clientSource.includes("promptFilter.section === 'styles'") && clientSource.includes("promptFilter.section === 'layouts'") && clientSource.includes('sectioned = promptSource.startsWith'), 'client scopes prompt filters by the selected section')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
