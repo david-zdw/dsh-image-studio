@@ -1100,7 +1100,7 @@ assert(clientSource.includes('configuredProviders.length > 0') && clientSource.i
 assert(clientSource.includes("window.matchMedia('(prefers-color-scheme: dark)')") && clientSource.includes("addEventListener('change'") && clientSource.includes('data-studio-night') && clientSource.includes('#0e1311') && clientSource.includes('#3f7564'), 'client auto-detects system dark preference and renders the night palette')
 assert(clientSource.includes('is-prompt-composer') && clientSource.includes('fillComposedPrompt') && clientSource.includes('selectComposerItem') && clientSource.includes('组合提示词') && clientSource.includes('pageSize=500'), 'client renders the handraw prompt composition bar')
 assert(clientSource.includes("}, '组合')") && clientSource.includes('is-prompt-composer-chip') && clientSource.includes('is-prompt-composer-chip-x'), 'client offers card-level compose buttons and compact chips')
-assert(clientSource.includes("promptFilter.section === 'styles'") && clientSource.includes("promptFilter.section === 'layouts'") && clientSource.includes('sectioned = promptSource.startsWith'), 'client scopes prompt filters by the selected section')
+assert(clientSource.includes('const sectionItems = (promptComposer[sectionKey] || []).filter((item) => item.section === sectionKey)') && clientSource.includes('const styleMap = new Map()') && clientSource.includes("rows.push(['分类', 'category', categoryOptions])"), 'client scopes prompt filters by the selected section')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
