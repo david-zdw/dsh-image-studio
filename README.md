@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与按服务商上限的参考图生图（Seedream 5.5 / 5.0 Pro 10 张、4.0 14 张）。
 
-当前版本：**v0.36.2** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.36.3** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -81,7 +81,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.36.2`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.36.2`，可以用它确认是否生效。
+当前版本 `v0.36.3`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.36.3`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -182,7 +182,7 @@ $DSH_HOME/image-studio/
 - 其他提示词来源（NavXD、GPT-Image2、UPMA）仍直接访问各自网页，不通过 GitHub 资源包。
 
 手绘风格库资源包：由 `scripts/build-handraw-pack.mjs` 从 [yang0/handraw-style](https://github.com/yang0/handraw-style) 的 reference 数据构建，包含 **372 个风格 + 170 个版式 + 36 个主题色**，约 34MB。原作者：**yang0**，原仓库：<https://github.com/yang0/handraw-style>。该资源包不随插件打包，默认从 GitHub Release 的 `handraw-pack-v1.zip` 拉取。
-- 导入后，在提示词卡片上点击「组合」即可把该条加入顶部「组合提示词」对应分区（风格/版式/配色）；点击「填入组合提示词」按顺序拼接后填入主输入框，ID 只用于选择，不会写进提示词。卡片上的「填入」仍会直接填入该条提示词。
+- 导入后，在提示词卡片上点击「组合」即可把该条加入顶部「组合提示词」对应分区（风格/版式/配色）；已选项显示为带序号的小标签，右上角 × 可单独清除。点击「填入组合提示词」按顺序拼接后填入主输入框，ID 只用于选择，不会写进提示词。卡片上的「填入」仍会直接填入该条提示词。
 
 提示词包示例：
 
