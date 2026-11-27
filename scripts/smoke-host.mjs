@@ -33,6 +33,7 @@ const PNG = Buffer.from(
 )
 // Big enough to trigger the parallel range download path (> 1.2MB).
 const BIG_PNG = Buffer.concat([PNG, Buffer.alloc(1_500_000, 0x5a)])
+const SMALL_ZIP = Buffer.from('UEsDBBQAAAAIAKZce10mpJUHPwAAAEYAAAAQAAAAaW1nXHByb21wdC0xLnBuZ+sM8HPn5ZLiYmBg4PX0cAkC0owgzMEGJOVFj3SCJVwcQypuJf85fyCAn4GllbGhZWWPIlCCwdPVz2WdU0ITAFBLAwQUAAAACACmXHtda9+BaJMAAAB1AQAADQAAAG1hbmlmZXN0Lmpzb26r5uVSAAKlnMSk1BwlKyAryjNA4dmeKc+X7FLSgUpmpoBlqjILdAuK8nMLSooRUiWpucUg2WiIACqoxiYI1leSWZKTirBva/eL9VNhhmJRXpyaXJKZnwfWUFxSmZNajEcxxI1ohj/rnwD00ov1vXg0wvxpiE9NbmI6xOGZuen6EKt0DfUK8tKVsOmpRReM5eWqBQBQSwECFAAUAAAACACmXHtdJqSVBz8AAABGAAAAEAAAAAAAAAAAAAAAAAAAAAAAaW1nXHByb21wdC0xLnBuZ1BLAQIUABQAAAAIAKZce11r34FokwAAAHUBAAANAAAAAAAAAAAAAAAAAG0AAABtYW5pZmVzdC5qc29uUEsFBgAAAAACAAIAeQAAACsBAAAAAA==', 'base64')
 let upstreamPort = 0
 
 const requests = []
@@ -825,7 +826,7 @@ await fs.writeFile(path.join(offlineRoot, 'prompts.json'), JSON.stringify({
   label: '演示提示词包',
   home: 'https://example.com/prompts',
   items: [
-    { id: 'p1', title: '测试提示词', prompt: '一只戴帽子的测试猫', image: 'img/prompt-1.png', category: '测试分类', styles: ['扁平插画'], scenes: ['室内'] },
+    { id: 'p1', section: 'styles', title: '测试提示词', prompt: '一只戴帽子的测试猫', image: 'img/prompt-1.png', category: '测试分类', styles: ['扁平插画'], scenes: ['室内'] },
     { id: 'bad', title: '坏数据', prompt: '不能读取', image: '../secret.png' },
   ],
 }))
@@ -853,9 +854,10 @@ assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1
 promptCheck = await call('/image-studio/offline/packs')
 assert(promptCheck.status === 200 && promptCheck.json.value.prompts.length === 1 && promptCheck.json.value.gallery.length === 1, 'offline packs are listed by kind')
 promptCheck = await call('/image-studio/prompts/sources')
-assert(promptCheck.json.value.some((item) => item.id === 'offline:demo-prompts' && item.offline === true && item.itemCount === 1), 'offline prompt source is exposed')
-promptCheck = await call('/image-studio/prompts/catalog?source=offline%3Ademo-prompts')
+assert(promptCheck.json.value.some((item) => item.id === 'offline:demo-prompts' && item.offline === true && item.itemCount === 1 && item.filters.sections.some(([value]) => value === 'styles')), 'offline prompt source is exposed with sections')
+promptCheck = await call('/image-studio/prompts/catalog?source=offline%3Ademo-prompts&section=styles')
 assert(promptCheck.status === 200 && promptCheck.json.value.items[0].prompt === '一只戴帽子的测试猫', 'offline prompt catalog returns normalized items')
+assert(promptCheck.json.value.items[0].section === 'styles', 'offline prompt keeps section')
 assert(/^offline:\/\/demo-prompts\//.test(promptCheck.json.value.items[0].image), 'offline prompt keeps a confined image reference')
 const offlinePromptImage = await fetch(`${origin}/image-studio/prompts/image?source=${encodeURIComponent('offline:demo-prompts')}&url=${encodeURIComponent(promptCheck.json.value.items[0].image)}`)
 assert(offlinePromptImage.status === 200 && offlinePromptImage.headers.get('content-type') === 'image/png', 'offline prompt image is served from disk')
@@ -873,6 +875,18 @@ promptCheck = await call('/image-studio/offline/remove', { method: 'POST', body:
 assert(promptCheck.status === 200 && promptCheck.json.value.removed === true, 'offline prompt pack removes')
 promptCheck = await call('/image-studio/offline/remove', { method: 'POST', body: { kind: 'gallery', id: 'demo-gallery' } })
 assert(promptCheck.status === 200 && promptCheck.json.value.removed === true, 'offline gallery pack removes')
+await fs.writeFile(path.join(offlineRoot, 'demo-prompts.zip'), SMALL_ZIP)
+promptCheck = await call('/image-studio/offline/import', {
+  method: 'POST',
+  body: { kind: 'prompts', manifestPath: path.join(offlineRoot, 'demo-prompts.zip') },
+})
+assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1, 'offline prompt pack imports from zip')
+promptCheck = await call('/image-studio/prompts/catalog?source=offline%3Azip-prompts&section=styles')
+assert(promptCheck.status === 200 && promptCheck.json.value.total === 1 && promptCheck.json.value.items[0].section === 'styles', 'zip pack section filter works')
+promptCheck = await call('/image-studio/offline/pull', { method: 'POST', body: { kind: 'prompts', url: 'http://example.com/demo.zip' } })
+assert(promptCheck.status === 422, 'offline pull rejects non-https urls')
+promptCheck = await call('/image-studio/offline/remove', { method: 'POST', body: { kind: 'prompts', id: 'zip-prompts' } })
+assert(promptCheck.status === 200 && promptCheck.json.value.removed === true, 'zip prompt pack removes')
 
 // File route + delete from history/disk.
 const historyItem = result.json.value.items[0]
@@ -1068,7 +1082,7 @@ assert(clientSource.includes('.is-head-actions .is-btn { height: 30px;') && clie
 assert(clientSource.includes('生成 ${') && clientSource.includes('取回 ${') && !clientSource.includes('参考图 ${result.referenceCount}'), 'client shows generation and retrieval timing without reference count')
 assert(clientSource.includes('is-providers.is-setup-providers') && !clientSource.includes('is-provider.active .is-provider-dot.ok'), 'client keeps provider status dots uniform')
 assert(!clientSource.includes('is-theme-hint'), 'client keeps theme cards compact without hint copy')
-assert(clientSource.includes('is-offline-modal') && clientSource.includes('离线导入'), 'client renders the offline import dialog and entry buttons')
+assert(clientSource.includes('is-offline-modal') && clientSource.includes('导入资源') && clientSource.includes('从 GitHub 拉取') && clientSource.includes('导入资源包'), 'client renders the resource import dialog with GitHub and package modes')
 assert(clientSource.includes('function droppedImageUrls') && clientSource.includes('async function referenceFileFromUrl') && clientSource.includes("dataTransfer.setData('text/uri-list'"), 'client accepts native image drags into the reference stage')
 assert(clientSource.includes('@keyframes is-silk-a') && clientSource.includes('@keyframes is-silk-b') && !clientSource.includes('conic-gradient') && !clientSource.includes('is-scan'), 'client uses a quiet silk-like loading flow instead of sweep effects')
 assert(clientSource.includes('opacity: .82') && clientSource.includes('peak: 0.34 + Math.random() * 0.08') && clientSource.includes('const breath = 0.72 + 0.28'), 'client keeps the loading dot matrix visible and breathing')
