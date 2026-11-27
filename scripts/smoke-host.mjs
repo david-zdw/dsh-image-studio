@@ -827,6 +827,7 @@ await fs.writeFile(path.join(offlineRoot, 'prompts.json'), JSON.stringify({
   home: 'https://example.com/prompts',
   items: [
     { id: 'p1', section: 'styles', title: '测试提示词', prompt: '一只戴帽子的测试猫', image: 'img/prompt-1.png', category: '测试分类', styles: ['扁平插画'], scenes: ['室内'] },
+    { id: 'p2', section: 'layouts', title: '测试版式', prompt: '一张规则网格版式', image: 'img/prompt-1.png', category: '版式分类', styles: ['网格'] },
     { id: 'bad', title: '坏数据', prompt: '不能读取', image: '../secret.png' },
   ],
 }))
@@ -841,7 +842,7 @@ promptCheck = await call('/image-studio/offline/import', {
   method: 'POST',
   body: { kind: 'prompts', manifestPath: path.join(offlineRoot, 'prompts.json') },
 })
-assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1, 'offline prompt pack imports and skips unsafe assets')
+assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 2, 'offline prompt pack imports and skips unsafe assets')
 promptCheck = await call('/image-studio/offline/import', {
   method: 'POST',
   body: {
@@ -854,10 +855,14 @@ assert(promptCheck.status === 200 && promptCheck.json.value.pack.itemCount === 1
 promptCheck = await call('/image-studio/offline/packs')
 assert(promptCheck.status === 200 && promptCheck.json.value.prompts.length === 1 && promptCheck.json.value.gallery.length === 1, 'offline packs are listed by kind')
 promptCheck = await call('/image-studio/prompts/sources')
-assert(promptCheck.json.value.some((item) => item.id === 'offline:demo-prompts' && item.offline === true && item.itemCount === 1 && item.filters.sections.some(([value]) => value === 'styles')), 'offline prompt source is exposed with sections')
+assert(promptCheck.json.value.some((item) => item.id === 'offline:demo-prompts' && item.offline === true && item.itemCount === 2 && item.filters.sections.some(([value]) => value === 'styles')), 'offline prompt source is exposed with sections')
 promptCheck = await call('/image-studio/prompts/catalog?source=offline%3Ademo-prompts&section=styles')
 assert(promptCheck.status === 200 && promptCheck.json.value.items[0].prompt === '一只戴帽子的测试猫', 'offline prompt catalog returns normalized items')
 assert(promptCheck.json.value.items[0].section === 'styles', 'offline prompt keeps section')
+assert(!promptCheck.json.value.filters.categories.some(([value]) => value === '版式分类'), 'prompt filter options are scoped to the selected section')
+const layoutCatalog = await call('/image-studio/prompts/catalog?source=offline%3Ademo-prompts&section=layouts')
+assert(layoutCatalog.status === 200 && layoutCatalog.json.value.total === 1 && layoutCatalog.json.value.items[0].id === 'p2', 'layout section returns only layout items')
+assert(layoutCatalog.json.value.filters.categories.some(([value]) => value === '版式分类'), 'layout section exposes layout categories')
 assert(/^offline:\/\/demo-prompts\//.test(promptCheck.json.value.items[0].image), 'offline prompt keeps a confined image reference')
 const offlinePromptImage = await fetch(`${origin}/image-studio/prompts/image?source=${encodeURIComponent('offline:demo-prompts')}&url=${encodeURIComponent(promptCheck.json.value.items[0].image)}`)
 assert(offlinePromptImage.status === 200 && offlinePromptImage.headers.get('content-type') === 'image/png', 'offline prompt image is served from disk')
@@ -1093,6 +1098,8 @@ assert(clientSource.includes('.is-head-right .is-providers { height: 38px;') && 
 assert(clientSource.includes('.is-head-right { display: flex; align-items: center; justify-content: space-between;'), 'client keeps config button pinned to the right edge')
 assert(clientSource.includes('configuredProviders.length > 0') && clientSource.includes('configuredProviders.map') && clientSource.includes('is-provider-empty') && clientSource.includes('需要先配置一个 API Key 才可以使用'), 'client only shows configured providers and warns when none')
 assert(clientSource.includes("window.matchMedia('(prefers-color-scheme: dark)')") && clientSource.includes("addEventListener('change'") && clientSource.includes('data-studio-night') && clientSource.includes('#0e1311') && clientSource.includes('#3f7564'), 'client auto-detects system dark preference and renders the night palette')
+assert(clientSource.includes('is-prompt-composer') && clientSource.includes('fillComposedPrompt') && clientSource.includes('组合提示词') && clientSource.includes('pageSize=500'), 'client renders the handraw prompt composition bar')
+assert(clientSource.includes("promptFilter.section === 'styles'") && clientSource.includes("promptFilter.section === 'layouts'") && clientSource.includes('sectioned = promptSource.startsWith'), 'client scopes prompt filters by the selected section')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
