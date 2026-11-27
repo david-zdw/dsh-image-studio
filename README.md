@@ -177,8 +177,9 @@ $DSH_HOME/image-studio/
 
 提示词库或参考图库右上角点「导入资源」：
 
-- **从 GitHub 拉取**：填写 ZIP 资源包 URL，Host 会下载并导入。
+- **从 GitHub 拉取**：仅用于「手绘风格库」ZIP 资源包，填写 ZIP URL，Host 会下载并导入。
 - **导入资源包**：填写 `manifest.json` 的路径（或包含 `manifest.json` / `index.json` / `pack.json` 的目录），也可以直接选 ZIP。图片路径相对于清单文件所在目录，也可以额外指定「图片根目录」。
+- 其他提示词来源（NavXD、GPT-Image2、UPMA）仍直接访问各自网页，不通过 GitHub 资源包。
 
 手绘风格库资源包：由 `scripts/build-handraw-pack.mjs` 从 [yang0/handraw-style](https://github.com/yang0/handraw-style) 的 reference 数据构建，包含 **372 个风格 + 170 个版式 + 36 个主题色**，约 34MB。原作者：**yang0**，原仓库：<https://github.com/yang0/handraw-style>。该资源包不随插件打包，默认从 GitHub Release 的 `handraw-pack-v1.zip` 拉取。
 

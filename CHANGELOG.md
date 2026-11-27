@@ -2,7 +2,7 @@
 
 ## v0.36.0 — 2026-11-27
 
-- 新增「导入资源」流程：提示词库/参考图库可从 GitHub 拉取 ZIP 资源包，也可导入本地 `manifest.json`、目录或 ZIP；原「离线导入」入口和文案统一改为「导入资源」。
+- 新增「导入资源」流程：提示词库可从 GitHub 拉取「手绘风格库」ZIP 资源包，提示词库/参考图库均可导入本地 `manifest.json`、目录或 ZIP；原「离线导入」入口和文案统一改为「导入资源」。其他提示词来源（NavXD、GPT-Image2、UPMA）仍直接访问各自网页。
 - 资源包提示词支持 `section` 分区（风格 / 版式 / 配色），配置页和提示词库增加分区筛选；资源包可记录 `author`、`authorUrl`、`home` 署名信息。
 - 新增手绘风格库资源包构建脚本 `scripts/build-handraw-pack.mjs`：从 `yang0/handraw-style` 的 reference 数据生成 372 风格 + 170 版式 + 36 配色，共 578 条，包含预览图和原作者署名。
 - 手绘风格库资源包默认不随插件打包；默认通过 GitHub Release `handraw-pack-v1.zip` 拉取，原作者仓库：https://github.com/yang0/handraw-style。
