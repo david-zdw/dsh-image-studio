@@ -1108,6 +1108,7 @@ assert(clientSource.includes('const totalPages = Math.max(1, Number(first && fir
 assert(clientSource.includes("}, '组合')") && clientSource.includes('is-prompt-composer-chip') && clientSource.includes('is-prompt-composer-chip-x'), 'client offers card-level compose buttons and compact chips')
 assert(clientSource.includes('const sectionItems = (promptComposer[sectionKey] || []).filter((item) => item.section === sectionKey)') && clientSource.includes('const styleMap = new Map()') && clientSource.includes("rows.push(['分类', 'category', categoryOptions])"), 'client scopes prompt filters by the selected section')
 assert(clientSource.includes('is-storyboard-modal') && clientSource.includes('openStoryboard') && clientSource.includes('fillStoryboardPrompt') && clientSource.includes('漫剧生图'), 'client renders the storyboard prompt dialog and add-to-prompt action')
+assert(clientSource.includes('grid-template-columns: repeat(5, minmax(0, 1fr))'), 'storyboard dialog uses five cards per row')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
