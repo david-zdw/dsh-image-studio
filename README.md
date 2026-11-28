@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok Image / MiniMax H3 / 豆包 Seedream / Gemini Nano Banana / OpenAI 兼容**，每个服务商独立 Key；侧边栏一级页面 + `/image` 对话调用，复用 `open-storyboard-canvas` 的 Agnes 请求契约，并补齐 OpenAI Images 与 Grok Imagine 接口；支持文生图与按服务商上限的参考图生图（Seedream 5.5 / 5.0 Pro 10 张、4.0 14 张）。
 
-当前版本：**v0.36.5** · [CHANGELOG](CHANGELOG.md)
+当前版本：**v0.37.0** · [CHANGELOG](CHANGELOG.md)
 
 ![多服务商生图面板](docs/panel.png)
 
@@ -11,13 +11,14 @@ DeepSeek Harness 的多服务商生图插件：**Agnes / OpenAI GPT Image / Grok
 - **七个服务商入口，各自独立 Key**：Agnes / GPT / Grok / MiniMax / 豆包 Seedream / Gemini / 自定义兼容接口，互不回退、互不覆盖；Key 只保存在本机插件目录。主面板只显示已配置 Key 的服务商，按 Agnes 到兼容接口的顺序自适应展开，「配置」按钮固定在右侧；全部未配置时提示先配置一个 API Key。Seedream 5.5 / 5.0 Pro 支持 1K/1.5K/2K 档位与最多 10 张参考图，4.0 支持 1K/2K/4K 与最多 14 张；Gemini 支持原生 `generateContent` 或 OpenAI 兼容 `/v1/images/generations` 两种协议，最多 5 张参考图。
 - **侧边栏一级入口**：与「插件」「自动化任务」「上下文洞察」同级，点击直接打开完整面板。
 - **提示词库**：提示词卡片头部「提示词库」打开弹窗，可选 **NavXD 提示词库**、**GPT-Image2 Gallery** 和 **UPMA Prompt Atlas** 三个来源；UPMA 自动解析 Next.js 页面里的 420 条案例（13 个分类，长提示词从 RSC 分块还原），支持分类/风格/场景筛选、关键词搜索、分页；点卡片可看大图与完整提示词，支持「复制」「填入」「下载图片」「原页」。提示词来自公开站点，插件不打包内容。
+- **漫剧生图**：提示词卡片头部新增「漫剧生图」入口，内置 [ganbo-gab/open-storyboard-canvas](https://github.com/ganbo-gab/open-storyboard-canvas) 的 15 条精提示词（5 条分镜、4 条全景、6 条工具），按分组展示，点击「加入提示词」直接追加到画面描述；每条包含标题、说明和完整提示词，来源与原作者在弹窗底部标注。
 - **导入资源**：提示词库和参考图库右上角「导入资源」支持两种方式：从 GitHub 拉取 ZIP 资源包，或导入本地 `manifest.json` / 目录 / ZIP。资源包可作为新的提示词来源或参考图库，插件默认不捆绑资源包；也提供 `POST /image-studio/offline/import`、`POST /image-studio/offline/pull` 等接口给外部爬虫/脚本调用。图片保留在本地，不占工作台图片缓存。
 - **兼容接口可选协议**：配置页顶部「协议 / Payload」可切换 **GPT Image** 或 **MiniMax H3**；切换后复用对应服务商的尺寸/比例/质量/参考图上限与请求体（GPT 走 Images generations/edits，MiniMax 走 area + aspect_ratio + images[]）。
 - **SFW 开关**：参考图库默认隐藏敏感内容（姿势「性感系」、服装「内衣/性感/泳装」），底部「SFW 开/关」可切换，选择保存在本机；当前默认隐藏 80 组姿势、393 套服装。
 - **参考图库**：参考图区「参考图库」打开弹窗，内置姿势 / 服装 / 人像三个库，可中文搜索；姿势按「体系 + 编号」合并成一组，卡片标「N 角度」；点开预览可左右切换角度，再加入参考图（原图，过大自动回退缩略图）或下载。图库走 Host 代理读取公开索引，插件不打包图片；可用 `galleryBaseUrl` 指向自建镜像。
 - **右键复制**：大图或全屏图右键可「复制图片」「复制提示词」；复制图片会自动转 PNG 写入剪贴板，直接粘贴即可发送。提示词输入框右键也可复制提示词（有选区复制选区）。
 - **动效与视效**：统一缓动/时长令牌，标题与卡片错峰入场、卡片悬停浮起、按钮扫光与按压缩放、服务商页签滑动底板；加载态有旋转描边、扫描光束和不定进度条，结果图模糊放大入场；弹层弹簧入场、缩略图/图库卡片悬停反馈、点击涟漪；支持 `prefers-reduced-motion` 静态降级。
-- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**全屏看图与删除**、**下载原图**、复制路径、右键复制图片/提示词、`@参考图N`、相机控制、提示词库、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格；结果图按画布大小等比缩放，1:1 图不会把面板撑出窗口。
+- **完整面板**：服务商切换、模型/尺寸/比例/质量、提示词、参考图、Ctrl/⌘+Enter、**整块画布中心扩散的矩阵点动画（遮罩扩展到画布边界与四角）**、结果预览、**全屏看图与删除**、**下载原图**、复制路径、右键复制图片/提示词、`@参考图N`、相机控制、提示词库、漫剧生图、最近 80 张历史；静止/出图状态也用静态矩阵点，不再显示棋盘格；结果图按画布大小等比缩放，1:1 图不会把面板撑出窗口。
 - **GPT 1K/2K/3K/4K + 比例**：自定义 GPT Image 2.5 模型尺寸只显示 1K/2K/3K/4K 四档，比例选择后自动算官方合法像素（宽高为 16 的倍数、比例 1:3–3:1、最长边≤3840、总像素 655,360–8,294,400）：`1K + 16:9 → 1280x720`、`2K + 16:9 → 2048x1152`、`4K + 16:9 → 3840x2160`；质量支持 `xhigh` / `max`。官方 gpt-image-1.x 仍只显示其支持的官方尺寸。
 - **gpt-image-2.6（含动图）**：`gpt-image-2.6-sunburst` / `gpt-image-2.6-flare`，新增「复杂度」和「格式」；格式选 `gif` 时按每帧预算（1:1 = 512x512、16:9 = 896x512）生成动图，可设 2–16 帧、20–2000ms；GIF 仅文生图，参考图编辑用 png/jpeg/webp。`/image` 也支持 `--format gif --frames 12 --frame-ms 120`。
 - **MiniMax H3 Image**：`MiniMax-H3-Image` / `MiniMax-H3-Image-Highspeed`，文生图和最多 16 张参考图编辑；按 `area`（1K/2K/4K）+ `aspect_ratio` 生成，编辑走 `/v1/images/edits` 的 `images[].image_url`，默认返回 `b64_json` PNG。
@@ -81,7 +82,7 @@ dsh plugin --profile desktop remove dsh-image-studio-workbench
 
 ## 更新
 
-当前版本 `v0.36.5`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.36.5`，可以用它确认是否生效。
+当前版本 `v0.37.0`。更新后顶栏会显示 `IMAGE WORKBENCH · v0.37.0`，可以用它确认是否生效。
 
 ### 本地 link 安装（推荐）
 
@@ -311,11 +312,12 @@ node scripts/smoke-host.mjs
 
 ## 致谢
 
-参考图库与提示词库的数据来自以下公开项目/站点，版权归各自作者所有。本插件只在运行时读取，不打包任何内容：
+参考图库与提示词库的数据来自以下公开项目/站点，版权归各自作者所有。除「漫剧生图」内置的 15 条选定提示词外，本插件只在运行时读取，不打包内容：
 
 - **AI 角色参考图库（中文版）** — 姿势 / 服装 / 人像三库：<https://github.com/anhao/ai-pose-gallery-zh> · <https://ai-pose-gallery.anhao.app/>
 - **NavXD 提示词库** — 社区出图与可复制 prompt：<https://navxd.com/prompt-template-library?cat=image>
 - **GPT-Image2 Prompt Gallery** — GPT-Image2 案例库：<https://gpt-image2.canghe.ai/#gallery>
+- **Open Storyboard Canvas** — 漫剧生图的分镜/全景/工具提示词：<https://github.com/ganbo-gab/open-storyboard-canvas>
 
 感谢以上作者与维护者。
 

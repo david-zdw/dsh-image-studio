@@ -778,7 +778,12 @@ result = await call('/image-studio/history')
 assert(result.json.value.items.some((item) => item.referenceCount >= 1), 'history records reference count')
 
 // Prompt library: source metadata is static, unknown sources are rejected.
-let promptCheck = await call('/image-studio/prompts/sources')
+let promptCheck = await call('/image-studio/storyboard/prompts')
+assert(promptCheck.status === 200 && promptCheck.json.value.groups.length === 3 && promptCheck.json.value.items.length === 15, 'storyboard prompt catalog exposes selected prompts')
+assert(promptCheck.json.value.items.some((item) => item.id === 'multiCameraGrid' && item.group === 'storyboard' && item.prompt.includes('3x3')), 'storyboard prompt data is complete')
+assert(promptCheck.json.value.items.every((item) => typeof item.prompt === 'string' && item.prompt.length > 10 && !item.prompt.includes('{{')), 'storyboard prompts have no unresolved placeholders')
+
+promptCheck = await call('/image-studio/prompts/sources')
 assert(promptCheck.status === 200 && promptCheck.json.value.length >= 3, 'prompt sources are listed')
 assert(promptCheck.json.value.some((item) => item.id === 'upma' && /UPMA/.test(item.label)), 'UPMA prompt source is listed')
 assert(promptCheck.json.value.some((item) => item.id === 'navxd' && item.filters.styles.length > 1), 'prompt source exposes its filters')
@@ -1102,6 +1107,7 @@ assert(clientSource.includes('is-prompt-composer') && clientSource.includes('fil
 assert(clientSource.includes('const totalPages = Math.max(1, Number(first && first.totalPages) || 1)') && clientSource.includes('Array.from({ length: totalPages - 1 }'), 'client loads all composer option pages')
 assert(clientSource.includes("}, '组合')") && clientSource.includes('is-prompt-composer-chip') && clientSource.includes('is-prompt-composer-chip-x'), 'client offers card-level compose buttons and compact chips')
 assert(clientSource.includes('const sectionItems = (promptComposer[sectionKey] || []).filter((item) => item.section === sectionKey)') && clientSource.includes('const styleMap = new Map()') && clientSource.includes("rows.push(['分类', 'category', categoryOptions])"), 'client scopes prompt filters by the selected section')
+assert(clientSource.includes('is-storyboard-modal') && clientSource.includes('openStoryboard') && clientSource.includes('fillStoryboardPrompt') && clientSource.includes('漫剧生图'), 'client renders the storyboard prompt dialog and add-to-prompt action')
 
 console.log('\nALL MULTI-PROVIDER SMOKE TESTS PASSED')
 server.close()
